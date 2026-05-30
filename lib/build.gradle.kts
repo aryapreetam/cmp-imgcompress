@@ -42,6 +42,12 @@ kotlin {
       implementation(libs.kotlinx.coroutines.test)
     }
 
+    val androidHostTest by getting {
+      dependencies {
+        implementation(libs.robolectric)
+      }
+    }
+
     val jvmMain by getting {
       dependencies {
         implementation(compose.desktop.currentOs)
