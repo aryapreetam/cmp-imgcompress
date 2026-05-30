@@ -80,7 +80,7 @@ class ImageCompressorTest : BasePlatformTest() {
       }
       
       if (out.metadata?.engineUsed == "iOS-NoOp") {
-          assertContentEquals(tinyPng, out.bytes, "iOS implementation should return raw bytes untouched.")
+          assertTrue(tinyPng.contentEquals(out.bytes), "iOS implementation should return raw bytes untouched.")
       } else {
           val targetBytes = targetKb * 1024
           val tol = maxOf((targetBytes * 0.05).toInt(), 10 * 1024)
