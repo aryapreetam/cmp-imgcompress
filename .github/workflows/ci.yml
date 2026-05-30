@@ -158,7 +158,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Run Android unit tests
-        run: ./gradlew :lib:testDebugUnitTest :sample:composeApp:testDebugUnitTest
+        run: ./gradlew :lib:testAndroid :sample:androidApp:testDebugUnitTest
 
   build-android-apk:
     name: Build Android APK for E2E
@@ -181,11 +181,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Build debug APK
-        run: ./gradlew :sample:composeApp:assembleDebug
+        run: ./gradlew :sample:androidApp:assembleDebug
       - name: Prepare APK artifact
         run: |
           mkdir -p ${{ github.workspace }}/e2e-artifacts
-          APK_SRC=$(find sample/composeApp/build/outputs/apk -type f -name '*.apk' | head -n1)
+          APK_SRC=$(find sample/androidApp/build/outputs/apk -type f -name '*.apk' | head -n1)
           if [ -n "$APK_SRC" ]; then
             cp "$APK_SRC" "${{ github.workspace }}/e2e-artifacts/sample-app-android-unsigned.apk"
             echo "APK prepared: sample-app-android-unsigned.apk"
@@ -315,7 +315,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew :sample:composeApp:connectedAndroidTest
+          script: ./gradlew :sample:androidApp:connectedAndroidTest
 
   maestro-e2e-android:
     name: Maestro E2E (Android)

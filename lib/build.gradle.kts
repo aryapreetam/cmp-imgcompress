@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
   alias(libs.plugins.multiplatform)
-  alias(libs.plugins.android.library)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.maven.publish)
   alias(libs.plugins.compose)
   alias(libs.plugins.compose.compiler)
@@ -14,7 +14,15 @@ plugins {
 kotlin {
   jvmToolchain(17)
 
-  androidTarget { publishLibraryVariants("release") }
+  androidLibrary {
+    namespace = "io.github.aryapreetam.cmpimgcompress"
+    compileSdk = 35
+    minSdk = 23
+    withHostTest {  }
+    androidResources {
+      enable = true
+    }
+  }
   jvm()
   wasmJs { browser() }
   iosX64()
@@ -23,13 +31,21 @@ kotlin {
 
   sourceSets {
     commonMain.dependencies {
-      implementation(compose.runtime)
-      implementation(compose.ui)
-      implementation(compose.foundation)
+      implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.ui.multiplatform)
+      implementation(libs.compose.foundation)
     }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
+      implementation(libs.kotlinx.coroutines.test)
+    }
+
+    val jvmMain by getting {
+      dependencies {
+        implementation(compose.desktop.currentOs)
+      }
     }
 
   }
@@ -45,14 +61,10 @@ kotlin {
 
 }
 
-android {
-  namespace = "io.github.aryapreetam.cmpimgcompress"
-  compileSdk = 35
-
-  defaultConfig {
-    minSdk = 21
-  }
-}
+// NOTE: Host-specific dependency leakage guardrail:
+// DO NOT import host-specific binary dependencies (e.g. `compose.desktop.currentOs`) under library targets.
+// Any desktop UI implementation should target standard platform-agnostic `jvm()` targets.
+// Platform-specific runtime locators must be restricted solely to the executable sample application (:sample).
 
 dependencies {
   dokkaPlugin(libs.android.documentation.plugin)
@@ -62,7 +74,11 @@ dependencies {
 //https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
 mavenPublishing {
   publishToMavenCentral()
-  coordinates("io.github.aryapreetam", "cmp-imgcompress", "0.0.1")
+  coordinates(
+      project.group.toString(),
+      findProperty("libArtifactId")?.toString() ?: "cmp-imgcompress",
+      project.version.toString()
+  )
 
   pom {
     name = "Image Compressor"

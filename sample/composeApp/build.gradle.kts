@@ -7,14 +7,17 @@ plugins {
   alias(libs.plugins.multiplatform)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.compose)
-  alias(libs.plugins.android.application)
-  alias(libs.plugins.composeHotReload)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
 }
 
 kotlin {
   jvmToolchain(17)
 
-  androidTarget()
+  androidLibrary {
+    namespace = "sample.app"
+    compileSdk = 35
+    minSdk = 23
+  }
   jvm()
   wasmJs {
     browser()
@@ -33,16 +36,14 @@ kotlin {
 
   sourceSets {
     commonMain.dependencies {
-      implementation(compose.runtime)
-      implementation(compose.ui)
-      implementation(compose.foundation)
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.ui.multiplatform)
+      implementation(libs.compose.foundation)
       implementation(project(":lib"))
     }
 
     commonTest.dependencies {
       implementation(libs.kotlin.test)
-      @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
-      implementation(compose.uiTest)
     }
 
     androidMain.dependencies {
@@ -53,20 +54,6 @@ kotlin {
       implementation(compose.desktop.currentOs)
     }
 
-  }
-}
-
-android {
-  namespace = "sample.app"
-  compileSdk = 35
-
-  defaultConfig {
-    minSdk = 21
-    targetSdk = 35
-
-    applicationId = "sample.app"
-    versionCode = 1
-    versionName = "1.0.0"
   }
 }
 
@@ -88,3 +75,4 @@ tasks.withType<Test>().configureEach {
     exclude("**/*UITest*")
   }
 }
+
