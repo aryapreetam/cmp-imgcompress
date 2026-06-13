@@ -39,7 +39,7 @@ kotlin {
       implementation(libs.compose.runtime)
       implementation(libs.compose.ui.multiplatform)
       implementation(libs.compose.foundation)
-      implementation(project(":lib"))
+      implementation(project(":cmp-imgcompress"))
     }
 
     commonTest.dependencies {

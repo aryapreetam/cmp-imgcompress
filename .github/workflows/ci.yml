@@ -127,13 +127,13 @@ jobs:
           set -e
           case "${{ matrix.target }}" in
             jvm)
-              ./gradlew :lib:jvmTest :sample:composeApp:jvmTest
+              ./gradlew :cmp-imgcompress:jvmTest :sample:composeApp:jvmTest
               ;;
             ios)
-              ./gradlew :lib:iosSimulatorArm64Test :sample:composeApp:iosSimulatorArm64Test
+              ./gradlew :cmp-imgcompress:iosSimulatorArm64Test :sample:composeApp:iosSimulatorArm64Test
               ;;
             wasm)
-              ./gradlew :lib:wasmJsBrowserTest :sample:composeApp:wasmJsBrowserTest
+              ./gradlew :cmp-imgcompress:wasmJsBrowserTest :sample:composeApp:wasmJsBrowserTest
               ;;
           esac
 
@@ -158,7 +158,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Run Android unit tests
-        run: ./gradlew :lib:testAndroid :sample:androidApp:testDebugUnitTest
+        run: ./gradlew :cmp-imgcompress:testAndroid :sample:androidApp:testDebugUnitTest
 
   build-android-apk:
     name: Build Android APK for E2E

@@ -1,4 +1,4 @@
-<h1 align="center">CMP Image Compressor - Compose Multiplatform Image Compression Library</h1>
+<h1 align="center">CMP Image Compressor</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Compose%20Multiplatform-v1.10.1-4285F4?logo=jetpackcompose" alt="Compose Multiplatform Version">
@@ -159,77 +159,9 @@ Download and try the sample app on your platform without building from source:
 | 🌐 **Web (Wasm)** | ZIP Bundle | [![Download](https://img.shields.io/badge/Download--Web--Wasm--zip-purple?style=for-the-badge)](https://github.com/aryapreetam/cmp-imgcompress/releases/latest/download/sample-app-wasm.zip) |
 |  **iOS Simulator** | ZIP Bundle | [![Download](https://img.shields.io/badge/Download--iOS--Simulator--zip-orange?style=for-the-badge&logo=apple)](https://github.com/aryapreetam/cmp-imgcompress/releases/latest/download/sample-app-ios-simulator.zip) |
 
-### How to Run the Sample App
+### 🚀 How to Run the Sample App
 
-#### 🤖 Android
-
-- Download the APK file.
-- Open an Android emulator or connect a physical device.
-- Drag the APK onto the emulator window, or run:
-  ```bash
-  adb install sample-app-android-unsigned.apk
-  ```
-
-#### 🌐 Web (Wasm)
-
-- Download and unzip `sample-app-wasm.zip`
-- Open `index.html` in your web browser.
-- Or visit the live demo: [Try Live Demo](https://aryapreetam.github.io/cmp-imgcompress/demo/)
-
-#### 🍏 iOS Simulator
-
-- Download `sample-app-ios-simulator.zip`
-- Unzip to get `sample-app-ios-simulator.app`
-- Open your iOS Simulator from Xcode.
-- Drag the `.app` onto the Simulator window, or run:
-  ```sh
-  xcrun simctl install booted /path/to/sample-app-ios-simulator.app
-  ```
-
-#### 🍎 macOS
-
-- Download the DMG for your architecture (Intel/x64 or Apple Silicon/arm64).
-- Open the DMG and drag the app to your Applications folder.
-- **When you try to open the app for the first time, macOS Gatekeeper will block it since it is an open-source build signed ad-hoc. Follow these 6 sequential steps to allow running the app:**
-
-  <table width="100%">
-    <tr>
-      <td align="center" valign="top"><strong>1. Block Alert Dialog</strong><br/><br/><img src="readme_images/mac_app_run1.png" alt="mac_app_run1" width="220"/></td>
-      <td align="center" valign="top"><strong>2. Open System Settings</strong><br/><br/><img src="readme_images/mac_app_run2.png" alt="mac_app_run2" width="220"/></td>
-      <td align="center" valign="top"><strong>3. Privacy & Security Section</strong><br/><br/><img src="readme_images/mac_app_run3.png" alt="mac_app_run3" width="220"/></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top"><strong>4. Click "Open Anyway"</strong><br/><br/><img src="readme_images/mac_app_run4.png" alt="mac_app_run4" width="220"/></td>
-      <td align="center" valign="top"><strong>5. Authenticate Security Dialog</strong><br/><br/><img src="readme_images/mac_app_run5.png" alt="mac_app_run5" width="220"/></td>
-      <td align="center" valign="top"><strong>6. Click "Open" to Launch</strong><br/><br/><img src="readme_images/mac_app_run6.png" alt="mac_app_run6" width="220"/></td>
-    </tr>
-  </table>
-
-- Summary:
-     1. Double-click the app. If blocked, open **System Settings**.
-     2. Navigate to **Privacy & Security** and scroll down to the **Security** section.
-     3. You will see a notice stating: *"sample was blocked from use because it is not from an identified developer"*.
-     4. Click **"Open Anyway"** and authenticate with your Touch ID / password.
-     5. Re-open the app and click **"Open"** on the confirmation dialog.
-
-#### 🐧 Linux
-
-- Download the `.deb` package.
-- Install it via your GUI software manager, or run:
-  ```bash
-  sudo dpkg -i sample-app-linux.deb
-  ```
-
----
-
-## 🛠️ Run Sample App from Source
-
-To run the sample app locally on your machine:
-
-- **Desktop JVM:** `./gradlew :sample:composeApp:run`
-- **Android:** Run the `:sample:androidApp` run configuration in Android Studio.
-- **iOS:** Open `sample/iosApp/iosApp.xcodeproj` in Xcode and run it.
-- **Wasm:** `./gradlew :sample:composeApp:wasmJsBrowserRun`
+For instructions on how to install and run the pre-built executables or build and run the sample application from source code, please refer to the **[How to Run the Sample App](docs/run-sample-app.md)** guide.
 
 ---
 

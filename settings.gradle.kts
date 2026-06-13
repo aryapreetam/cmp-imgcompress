@@ -1,4 +1,4 @@
-rootProject.name = "cmp-imgcompress"
+rootProject.name = "cmp-imgcompress-root"
 
 pluginManagement {
   repositories {
@@ -33,7 +33,7 @@ plugins {
   id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-include(":lib")
+include(":cmp-imgcompress")
 include(":sample:composeApp")
 include(":sample:androidApp")
 

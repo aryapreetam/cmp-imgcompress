@@ -1,6 +1,6 @@
-# Contributing to Compose Multiplatform Library Template
+# Contributing to CMP Image Compressor
 
-Thank you for your interest in contributing! This document provides guidelines for developers working on this template.
+Thank you for your interest in contributing! This document provides guidelines for developers working on this project.
 
 ---
 
@@ -12,7 +12,7 @@ cmp-imgcompress/
 │   ├── ci.yml             # Reusable CI (lint, tests, build)
 │   ├── push-ci.yml        # Runs on every push/PR
 │   └── release.yml        # Runs on version tags (v*)
-├── lib/                   # The actual library code
+├── cmp-imgcompress/        # The actual library code
 │   ├── src/
 │   │   ├── commonMain/    # Shared Kotlin code
 │   │   └── commonTest/    # Shared tests
@@ -22,7 +22,7 @@ cmp-imgcompress/
 │   └── iosApp/            # iOS wrapper for Compose app
 ├── docs/                  # Documentation
 ├── readme_images/         # Images used in README
-└── README.MD              # Main documentation (becomes homepage)
+└── README.MD              # Main documentation
 ```
 
 ---
@@ -55,10 +55,10 @@ cmp-imgcompress/
    ./gradlew test
    
    # Platform-specific tests
-   ./gradlew :lib:jvmTest
-   ./gradlew :lib:iosSimulatorArm64Test
-   ./gradlew :lib:wasmJsBrowserTest
-   ./gradlew :lib:testDebugUnitTest  # Android unit tests
+   ./gradlew :cmp-imgcompress:jvmTest
+   ./gradlew :cmp-imgcompress:iosSimulatorArm64Test
+   ./gradlew :cmp-imgcompress:wasmJsBrowserTest
+   ./gradlew :cmp-imgcompress:testDebugUnitTest  # Android unit tests
    ```
 
 ---
@@ -67,15 +67,15 @@ cmp-imgcompress/
 
 ### Working on the Library
 
-1. Make changes in `lib/src/commonMain/kotlin/`
-2. Write tests in `lib/src/commonTest/kotlin/`
-3. Run tests: `./gradlew :lib:test`
+1. Make changes in `cmp-imgcompress/src/commonMain/kotlin/`
+2. Write tests in `cmp-imgcompress/src/commonTest/kotlin/`
+3. Run tests: `./gradlew :cmp-imgcompress:test`
 4. Check code style: `./gradlew lintRelease`
 
 ### Testing Changes in Sample App
 
-1. Make changes in `lib/`
-2. The sample app automatically uses the local library via `implementation(project(":lib"))`
+1. Make changes in `cmp-imgcompress/`
+2. The sample app automatically uses the local library via `implementation(project(":cmp-imgcompress"))`
 3. Run the sample app on your target platform:
 
    **Android:**
@@ -106,7 +106,7 @@ cmp-imgcompress/
 Test your library locally before publishing to Maven Central:
 
 ```bash
-./gradlew :lib:publishToMavenLocal
+./gradlew :cmp-imgcompress:publishToMavenLocal
 ```
 
 Then in another project, add:
@@ -171,7 +171,7 @@ dependencies {
 
 ### Release Process
 
-1. **Update version in `lib/build.gradle.kts`**
+1. **Update version in `cmp-imgcompress/build.gradle.kts`**
    ```kotlin
    coordinates("io.github.aryapreetam", "cmp-imgcompress", "0.0.4") // Bump this
    ```
@@ -210,10 +210,10 @@ dependencies {
 ./gradlew test
 
 # Specific platforms
-./gradlew :lib:jvmTest
-./gradlew :lib:iosSimulatorArm64Test
-./gradlew :lib:wasmJsBrowserTest
-./gradlew :lib:testDebugUnitTest  # Android
+./gradlew :cmp-imgcompress:jvmTest
+./gradlew :cmp-imgcompress:iosSimulatorArm64Test
+./gradlew :cmp-imgcompress:wasmJsBrowserTest
+./gradlew :cmp-imgcompress:testDebugUnitTest  # Android
 ```
 
 ### UI Tests
@@ -235,7 +235,7 @@ dependencies {
 
 ### Adding a New Platform (e.g., tvOS)
 
-1. **Add target in `lib/build.gradle.kts`**
+1. **Add target in `cmp-imgcompress/build.gradle.kts`**
    ```kotlin
    kotlin {
      // ...existing targets...
@@ -259,7 +259,7 @@ dependencies {
 
 4. **Test locally**
    ```bash
-   ./gradlew :lib:tvosSimulatorArm64Test
+   ./gradlew :cmp-imgcompress:tvosSimulatorArm64Test
    ```
 
 ---
@@ -272,16 +272,16 @@ API documentation is generated automatically via Dokka:
 
 ```bash
 # Generate locally
-./gradlew :lib:dokkaGeneratePublicationHtml
+./gradlew :cmp-imgcompress:dokkaGeneratePublicationHtml
 
-# View at: lib/build/dokka/html/index.html
+# View at: cmp-imgcompress/build/dokka/html/index.html
 ```
 
 On release, docs are automatically published to: `https://yourusername.github.io/repo-name/api/`
 
 ### Updating Homepage
 
-Edit `README.MD` - it's automatically converted to the homepage via Docsify.
+Edit `README.MD` - it's automatically converted to the homepage.
 
 ---
 
@@ -289,7 +289,7 @@ Edit `README.MD` - it's automatically converted to the homepage via Docsify.
 
 ### Common Issues
 
-**Issue: "Task :lib:signKotlinMultiplatformPublication not found"**
+**Issue: "Task :cmp-imgcompress:signKotlinMultiplatformPublication not found"**
 - Ensure GPG key is properly configured
 - Check `signing.keyId` is set (local) or `signingInMemoryKey` (CI)
 
@@ -349,4 +349,3 @@ Edit `README.MD` - it's automatically converted to the homepage via Docsify.
 ## 📄 License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
-

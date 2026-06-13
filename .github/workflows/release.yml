@@ -376,7 +376,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Publish to MavenCentral
-        run: ./gradlew :lib:publishAndReleaseToMavenCentral --no-configuration-cache
+        run: ./gradlew :cmp-imgcompress:publishAndReleaseToMavenCentral --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -487,15 +487,15 @@ jobs:
 
       # API docs (Dokka) into site/api
       - name: Generate API Docs (Dokka)
-        run: ./gradlew :lib:dokkaGeneratePublicationHtml --stacktrace --warning-mode=all
+        run: ./gradlew :cmp-imgcompress:dokkaGeneratePublicationHtml --stacktrace --warning-mode=all
       - name: Prepare API Docs Folder
         run: |
           mkdir -p site/api
-          if [ -d lib/build/dokka/html ]; then
-            cp -r lib/build/dokka/html/* site/api/
+          if [ -d cmp-imgcompress/build/dokka/html ]; then
+            cp -r cmp-imgcompress/build/dokka/html/* site/api/
           else
             # Fallback: copy whatever dokka produced
-            cp -r lib/build/dokka/* site/api/
+            cp -r cmp-imgcompress/build/dokka/* site/api/
           fi
       # Configure and deploy GitHub Pages (no gh-pages branch needed)
       - name: Configure Pages
