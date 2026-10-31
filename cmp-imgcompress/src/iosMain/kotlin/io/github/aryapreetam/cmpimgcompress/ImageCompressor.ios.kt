@@ -57,12 +57,11 @@ actual object ImageCompressor {
       val startTime = TimeSource.Monotonic.markNow()
       val originalSize = input.rawBytes.size
 
-      autoreleasepool {
-        val cfData =
-          input.rawBytes.usePinned { pinned ->
-            val bytePtr = pinned.addressOf(0).reinterpret<uint8_tVar>()
-            CFDataCreate(null, bytePtr, input.rawBytes.size.toLong())
-          } ?: throw RuntimeException("Failed to allocate CFData for image input")
+      val cfData =
+        input.rawBytes.usePinned { pinned ->
+          val bytePtr = pinned.addressOf(0).reinterpret<uint8_tVar>()
+          CFDataCreate(null, bytePtr, input.rawBytes.size.toLong())
+        } ?: throw RuntimeException("Failed to allocate CFData for image input")
 
         val imageSource =
           try {
@@ -125,67 +124,6 @@ actual object ImageCompressor {
           }
         }
 
-        fun encodeAtQuality(cgImage: CGImageRef, quality: Int): Pair<ByteArray, String> {
-          val mutableData =
-            CFDataCreateMutable(null, 0)
-              ?: throw RuntimeException("Failed to allocate CFMutableData")
-
-          val utiWebP = CFStringCreateWithCString(null, "public.webp", kCFStringEncodingUTF8)
-          var destination =
-            if (utiWebP != null) {
-              CGImageDestinationCreateWithData(mutableData, utiWebP, 1.toULong(), null).also {
-                CFRelease(utiWebP)
-              }
-            } else {
-              null
-            }
-          var mimeType = "image/webp"
-
-          if (destination == null) {
-            val utiJpeg = CFStringCreateWithCString(null, "public.jpeg", kCFStringEncodingUTF8)
-            destination =
-              if (utiJpeg != null) {
-                CGImageDestinationCreateWithData(mutableData, utiJpeg, 1.toULong(), null).also {
-                  CFRelease(utiJpeg)
-                }
-              } else {
-                null
-              } ?: throw RuntimeException("Failed to create CGImageDestination for WebP and JPEG")
-            mimeType = "image/jpeg"
-          }
-
-          memScoped {
-            val options = CFDictionaryCreateMutable(null, 1, null, null)
-            val qVar = alloc<DoubleVar>()
-            qVar.value = quality.toDouble() / 100.0
-            val qNum = CFNumberCreate(null, kCFNumberDoubleType, qVar.ptr)
-            CFDictionarySetValue(options, kCGImageDestinationLossyCompressionQuality, qNum)
-
-            CGImageDestinationAddImage(destination, cgImage, options)
-
-            if (options != null) CFRelease(options)
-            if (qNum != null) CFRelease(qNum)
-          }
-
-          val finalized = CGImageDestinationFinalize(destination)
-          CFRelease(destination)
-          if (!finalized) {
-            CFRelease(mutableData)
-            throw RuntimeException("Failed to finalize CGImageDestination")
-          }
-
-          val length = CFDataGetLength(mutableData).toInt()
-          val bytePtr = CFDataGetBytePtr(mutableData)
-          val resultBytes =
-            if (bytePtr != null && length > 0) {
-              bytePtr.readBytes(length)
-            } else {
-              ByteArray(0)
-            }
-          CFRelease(mutableData)
-          return Pair(resultBytes, mimeType)
-        }
-
         try {
           when (config) {
             is CompressionConfig.ByQuality -> {
@@ -241,6 +179,66 @@ actual object ImageCompressor {
           }
           CGImageRelease(originalImage)
         }
-      }
     }
+
+  private fun encodeAtQuality(cgImage: CGImageRef, quality: Int): Pair<ByteArray, String> = autoreleasepool {
+    val mutableData =
+      CFDataCreateMutable(null, 0)
+        ?: throw RuntimeException("Failed to allocate CFMutableData")
+
+    val utiWebP = CFStringCreateWithCString(null, "public.webp", kCFStringEncodingUTF8)
+    var destination =
+      if (utiWebP != null) {
+        CGImageDestinationCreateWithData(mutableData, utiWebP, 1.toULong(), null).also {
+          CFRelease(utiWebP)
+        }
+      } else {
+        null
+      }
+    var mimeType = "image/webp"
+
+    if (destination == null) {
+      val utiJpeg = CFStringCreateWithCString(null, "public.jpeg", kCFStringEncodingUTF8)
+      destination =
+        if (utiJpeg != null) {
+          CGImageDestinationCreateWithData(mutableData, utiJpeg, 1.toULong(), null).also {
+            CFRelease(utiJpeg)
+          }
+        } else {
+          null
+        } ?: throw RuntimeException("Failed to create CGImageDestination for WebP and JPEG")
+      mimeType = "image/jpeg"
+    }
+
+    memScoped {
+      val options = CFDictionaryCreateMutable(null, 1, null, null)
+      val qVar = alloc<DoubleVar>()
+      qVar.value = quality.toDouble() / 100.0
+      val qNum = CFNumberCreate(null, kCFNumberDoubleType, qVar.ptr)
+      CFDictionarySetValue(options, kCGImageDestinationLossyCompressionQuality, qNum)
+
+      CGImageDestinationAddImage(destination, cgImage, options)
+
+      if (options != null) CFRelease(options)
+      if (qNum != null) CFRelease(qNum)
+    }
+
+    val finalized = CGImageDestinationFinalize(destination)
+    CFRelease(destination)
+    if (!finalized) {
+      CFRelease(mutableData)
+      throw RuntimeException("Failed to finalize CGImageDestination")
+    }
+
+    val length = CFDataGetLength(mutableData).toInt()
+    val bytePtr = CFDataGetBytePtr(mutableData)
+    val resultBytes =
+      if (bytePtr != null && length > 0) {
+        bytePtr.readBytes(length)
+      } else {
+        ByteArray(0)
+      }
+    CFRelease(mutableData)
+    Pair(resultBytes, mimeType)
+  }
 }

@@ -3,6 +3,8 @@ package sample.app
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -14,38 +16,75 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.aryapreetam.cmpimgcompress.*
+import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.launch
 
+private data class PickedImage(
+  val name: String,
+  val data: ImageData
+)
+
 @OptIn(ExperimentalEncodingApi::class)
 private val MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 
+@OptIn(ExperimentalEncodingApi::class)
 @Composable
 fun App() {
   val coroutineScope = rememberCoroutineScope()
-  
+
   // State variables
   var isCompressing by remember { mutableStateOf(false) }
   var compressionError by remember { mutableStateOf<String?>(null) }
   var compressedResult by remember { mutableStateOf<CompressedImage?>(null) }
-  
+
+  // Picked image state
+  var pickedImage by remember { mutableStateOf<PickedImage?>(null) }
+  val pickerLauncher = rememberFilePickerLauncher(
+    type = FileKitType.Image
+  ) { platformFile ->
+    if (platformFile != null) {
+      coroutineScope.launch {
+        val bytes = platformFile.readBytes()
+        val name = platformFile.name
+        val mime = when {
+          name.endsWith(".png", ignoreCase = true) -> "image/png"
+          name.endsWith(".webp", ignoreCase = true) -> "image/webp"
+          else -> "image/jpeg"
+        }
+        pickedImage = PickedImage(name = name, data = ImageData(bytes, mime))
+        compressedResult = null
+        compressionError = null
+      }
+    }
+  }
+
   // Config state
   var useQualityMode by remember { mutableStateOf(true) }
   var qualityInput by remember { mutableStateOf("80") }
   var targetSizeInput by remember { mutableStateOf("50") }
 
+  val sourceBytes = pickedImage?.data?.rawBytes ?: Base64.Mime.decode(MOCK_PNG_BASE64)
+  val sourceMime = pickedImage?.data?.mimeType ?: "image/png"
+  val sourceName = pickedImage?.name ?: "Mock 1x1 transparent PNG"
+
   Box(
     modifier = Modifier
       .fillMaxSize()
+      .testTag("app_root")
       .background(
         brush = Brush.verticalGradient(
           colors = listOf(Color(0xFF0F172A), Color(0xFF1E293B))
@@ -55,16 +94,23 @@ fun App() {
   ) {
     Column(
       modifier = Modifier
-        .widthIn(max = 500.dp)
-        .fillMaxWidth()
-        .padding(24.dp)
-        .clip(RoundedCornerShape(24.dp))
-        .background(Color(0xFF1E293B).copy(alpha = 0.85f))
-        .border(1.dp, Color(0xFF334155), RoundedCornerShape(24.dp))
-        .padding(28.dp),
+        .fillMaxSize()
+        .verticalScroll(rememberScrollState())
+        .padding(16.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(20.dp)
+      verticalArrangement = Arrangement.Center
     ) {
+      Column(
+        modifier = Modifier
+          .widthIn(max = 500.dp)
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(24.dp))
+          .background(Color(0xFF1E293B).copy(alpha = 0.85f))
+          .border(1.dp, Color(0xFF334155), RoundedCornerShape(24.dp))
+          .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+      ) {
       // Header
       Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BasicText(
@@ -95,28 +141,52 @@ fun App() {
           .background(Color(0xFF334155))
       )
 
-      // Mock Asset Status
+      // Pick Image Button
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(Color(0xFF334155))
+          .clickable { pickerLauncher.launch() }
+          .testTag("pick_image_button")
+          .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+      ) {
+        BasicText(
+          text = if (pickedImage != null) "Change Image" else "Choose Image from Device",
+          style = TextStyle(
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+          )
+        )
+      }
+
+      // Source Asset Status
       Row(
         modifier = Modifier
           .fillMaxWidth()
           .clip(RoundedCornerShape(12.dp))
           .background(Color(0xFF0F172A).copy(alpha = 0.5f))
+          .testTag("source_asset_card")
           .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
       ) {
-        Column {
+        Column(modifier = Modifier.weight(1f, fill = false)) {
           BasicText(
             text = "Source Asset",
             style = TextStyle(color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
           )
           BasicText(
-            text = "Mock 1x1 transparent PNG",
+            text = sourceName,
+            modifier = Modifier.testTag("source_image_name"),
             style = TextStyle(color = Color.White, fontSize = 14.sp)
           )
         }
         BasicText(
-          text = "95 B",
+          text = "${sourceBytes.size} B",
+          modifier = Modifier.testTag("source_image_size"),
           style = TextStyle(color = Color(0xFF38BDF8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         )
       }
@@ -176,7 +246,7 @@ fun App() {
           text = if (useQualityMode) "Quality Percentage (0 - 100)" else "Target Size (KB)",
           style = TextStyle(color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
         )
-        
+
         Box(
           modifier = Modifier
             .fillMaxWidth()
@@ -215,14 +285,14 @@ fun App() {
               colors = listOf(Color(0xFF38BDF8), Color(0xFF0EA5E9))
             )
           )
+          .testTag("compress_button")
           .clickable(enabled = !isCompressing) {
             isCompressing = true
             compressionError = null
             coroutineScope.launch {
               try {
-                val inputBytes = Base64.Mime.decode(MOCK_PNG_BASE64)
-                val imageData = ImageData(inputBytes, "image/png")
-                
+                val imageData = pickedImage?.data ?: ImageData(sourceBytes, sourceMime)
+
                 val config = if (useQualityMode) {
                   val q = qualityInput.toFloatOrNull() ?: 80f
                   CompressionConfig.ByQuality(q)
@@ -279,6 +349,7 @@ fun App() {
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF0F172A).copy(alpha = 0.4f))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+            .testTag("compression_analytics_card")
             .padding(16.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -286,14 +357,18 @@ fun App() {
             text = "Compression Analytics",
             style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
           )
-          
+
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
           ) {
             Column {
               BasicText(text = "Output Size", style = TextStyle(color = Color(0xFF64748B), fontSize = 11.sp))
-              BasicText(text = "${res.compressedSize} B", style = TextStyle(color = Color(0xFF34D399), fontSize = 14.sp, fontWeight = FontWeight.Bold))
+              BasicText(
+                text = "${res.compressedSize} B",
+                modifier = Modifier.testTag("compressed_image_size"),
+                style = TextStyle(color = Color(0xFF34D399), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+              )
             }
             Column(horizontalAlignment = Alignment.End) {
               BasicText(text = "Format", style = TextStyle(color = Color(0xFF64748B), fontSize = 11.sp))
@@ -308,7 +383,7 @@ fun App() {
                 .height(1.dp)
                 .background(Color(0xFF334155))
             )
-            
+
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween
@@ -331,4 +406,5 @@ fun App() {
       }
     }
   }
+}
 }

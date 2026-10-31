@@ -8,6 +8,7 @@ plugins {
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.compose)
   alias(libs.plugins.android.kotlin.multiplatform.library)
+  id("io.github.aryapreetam.parikshan") version "0.0.10"
 }
 
 kotlin {
@@ -15,8 +16,8 @@ kotlin {
 
   androidLibrary {
     namespace = "sample.app"
-    compileSdk = 35
-    minSdk = 23
+    compileSdk = 37
+    minSdk = 24
   }
   jvm()
   wasmJs {
@@ -40,6 +41,7 @@ kotlin {
       implementation(libs.compose.ui.multiplatform)
       implementation(libs.compose.foundation)
       implementation(project(":cmp-imgcompress"))
+      implementation("io.github.vinceglb:filekit-dialogs-compose:0.14.0")
     }
 
     commonTest.dependencies {

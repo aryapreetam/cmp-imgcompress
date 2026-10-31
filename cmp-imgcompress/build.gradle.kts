@@ -15,7 +15,7 @@ kotlin {
 
   androidLibrary {
     namespace = "io.github.aryapreetam.cmpimgcompress"
-    compileSdk = 35
+    compileSdk = 37
     minSdk = 23
     withHostTest {  }
     androidResources {
