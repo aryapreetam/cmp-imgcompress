@@ -6,8 +6,7 @@ plugins {
   alias(libs.plugins.multiplatform)
   alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.maven.publish)
-  alias(libs.plugins.compose)
-  alias(libs.plugins.compose.compiler)
+  alias(libs.plugins.binary.compatibility.validator)
   alias(libs.plugins.dokka)
 }
 
@@ -32,9 +31,6 @@ kotlin {
   sourceSets {
     commonMain.dependencies {
       implementation(libs.kotlinx.coroutines.core)
-      implementation(libs.compose.runtime)
-      implementation(libs.compose.ui.multiplatform)
-      implementation(libs.compose.foundation)
     }
 
     commonTest.dependencies {
@@ -50,7 +46,25 @@ kotlin {
 
     val jvmMain by getting {
       dependencies {
-        implementation(compose.desktop.currentOs)
+        implementation(libs.skiko)
+      }
+    }
+
+    val jvmTest by getting {
+      dependencies {
+        val os = System.getProperty("os.name").lowercase()
+        val arch = System.getProperty("os.arch").lowercase()
+        val skikoOs = when {
+          os.contains("mac") || os.contains("darwin") -> "macos"
+          os.contains("linux") -> "linux"
+          os.contains("win") -> "windows"
+          else -> "macos"
+        }
+        val skikoArch = when {
+          arch == "aarch64" || arch == "arm64" -> "arm64"
+          else -> "x64"
+        }
+        runtimeOnly("org.jetbrains.skiko:skiko-awt-runtime-$skikoOs-$skikoArch:${libs.versions.skiko.get()}")
       }
     }
 
@@ -89,7 +103,7 @@ mavenPublishing {
   pom {
     name = "Image Compressor"
     description = "Image Compressor for Compose Multiplatform(only webp output for now)"
-    url = "https://aryapreetam.github.io/cmp-imgcompress" //todo
+    url = "https://github.com/aryapreetam/cmp-imgcompress"
 
     licenses {
       license {
@@ -100,13 +114,16 @@ mavenPublishing {
 
     developers {
       developer {
-        id = "aryapreetam" //todo
-        name = "Preetam Bhosle" //todo
+        id = "aryapreetam"
+        name = "Preetam Bhosle"
+        url = "https://github.com/aryapreetam"
       }
     }
 
     scm {
-      url = "https://github.com/aryapreetam/cmp-imgcompress" //todo
+      url = "https://github.com/aryapreetam/cmp-imgcompress"
+      connection = "scm:git:git://github.com/aryapreetam/cmp-imgcompress.git"
+      developerConnection = "scm:git:ssh://git@github.com/aryapreetam/cmp-imgcompress.git"
     }
   }
   // Sign publications if either local keyId or CI signingInMemoryKey is available

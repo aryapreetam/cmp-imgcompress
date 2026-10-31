@@ -1,84 +1,157 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package io.github.aryapreetam.cmpimgcompress
 
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.coroutines.resumeWithException
 import kotlin.math.max
-import kotlin.math.min
 
-// Optimized JS function with better error handling and reduced overhead
+external class Uint8Array : JsAny {
+  val length: Int
+  operator fun get(index: Int): Byte
+  operator fun set(index: Int, value: Byte)
+}
+
+@JsFun("(size) => new Uint8Array(size)")
+private external fun jsCreateUint8Array(size: Int): Uint8Array
+
 @JsFun(
-  "function(b64, mime, quality, maxLongEdgePx, cb){\n" +
-    "  try {\n" +
-    "    const bin = atob(b64);\n" +
-    "    const len = bin.length;\n" +
-    "    const view = new Uint8Array(len);\n" +
-    "    for (let i=0;i<len;i++) view[i] = bin.charCodeAt(i);\n" +
-    "    const buf = view.buffer;\n" +
-    "    \n" +
-    "    (async () => {\n" +
-    "      try {\n" +
-    "        const blob = new Blob([buf], {type: mime});\n" +
-    "        const bitmap = await createImageBitmap(blob);\n" +
-    "        let w = bitmap.width; let h = bitmap.height;\n" +
-    "        \n" +
-    "        // Intelligent resizing for large images (4-7MB sources)\n" +
-    "        if (maxLongEdgePx !== null && maxLongEdgePx !== undefined) {\n" +
-    "          const longEdge = Math.max(w, h);\n" +
-    "          if (longEdge > maxLongEdgePx) {\n" +
-    "            const scale = maxLongEdgePx / longEdge;\n" +
-    "            w = Math.max(1, Math.round(w * scale));\n" +
-    "            h = Math.max(1, Math.round(h * scale));\n" +
-    "          }\n" +
-    "        }\n" +
-    "        \n" +
-    "        // Use OffscreenCanvas for better performance\n" +
-    "        const canvas = new OffscreenCanvas(w, h);\n" +
-    "        const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});\n" +
-    "        if (!ctx) throw new Error('Failed to get optimized 2D context');\n" +
-    "        \n" +
-    "        // Optimized rendering settings\n" +
-    "        ctx.imageSmoothingEnabled = w < bitmap.width; // Only smooth when downscaling\n" +
-    "        ctx.imageSmoothingQuality = 'high';\n" +
-    "        ctx.drawImage(bitmap, 0, 0, w, h);\n" +
-    "        \n" +
-    "        // Convert to WebP with proper quality\n" +
-    "        const outBlob = await canvas.convertToBlob({\n" +
-    "          type: 'image/webp',\n" +
-    "          quality: Math.max(0.01, Math.min(1.0, quality/100))\n" +
-    "        });\n" +
-    "        \n" +
-    "        const outArr = new Uint8Array(await outBlob.arrayBuffer());\n" +
-    "        let outBin = '';\n" +
-    "        for (let i=0;i<outArr.length;i++) outBin += String.fromCharCode(outArr[i]);\n" +
-    "        const outB64 = btoa(outBin);\n" +
-    "        cb(outB64);\n" +
-    "        \n" +
-    "        // Cleanup\n" +
-    "        bitmap.close();\n" +
-    "      } catch (e) {\n" +
-    "        cb('ERROR: ' + e.message);\n" +
-    "      }\n" +
-    "    })();\n" +
-    "  } catch (e) {\n" +
-    "    cb('ERROR: ' + e.message);\n" +
-    "  }\n" +
-    "}"
+  """(uint8, mime, cb) => {
+    (async () => {
+      try {
+        const blob = new Blob([uint8], { type: mime });
+        const bitmap = await createImageBitmap(blob);
+        cb(bitmap, null);
+      } catch (e) {
+        cb(null, e.message || 'Decode error');
+      }
+    })();
+  }"""
 )
-external fun jsEncodeWebPBase64(
-  b64: String,
+private external fun jsDecodeBitmap(
+  uint8: Uint8Array,
   mime: String,
+  cb: (JsAny?, String?) -> Unit
+)
+
+@JsFun(
+  """(bitmap, quality, maxLongEdgePx, downscaleOnly, cb) => {
+    (async () => {
+      try {
+        let w = bitmap.width;
+        let h = bitmap.height;
+        if (maxLongEdgePx !== null && maxLongEdgePx !== undefined && maxLongEdgePx > 0) {
+          const longEdge = Math.max(w, h);
+          if (!downscaleOnly || longEdge > maxLongEdgePx) {
+            const scale = maxLongEdgePx / longEdge;
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+          }
+        }
+        let canvas, ctx;
+        if (typeof OffscreenCanvas !== 'undefined') {
+          canvas = new OffscreenCanvas(w, h);
+          ctx = canvas.getContext('2d');
+        } else if (typeof document !== 'undefined' && document.createElement) {
+          canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          ctx = canvas.getContext('2d');
+        } else {
+          throw new Error('Canvas not supported in current runtime');
+        }
+        if (!ctx) throw new Error('Failed to get 2D canvas context');
+        ctx.imageSmoothingEnabled = w < bitmap.width;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bitmap, 0, 0, w, h);
+
+        const qualityRatio = Math.max(0.01, Math.min(1.0, quality / 100.0));
+        let blob;
+        if (canvas.convertToBlob) {
+          blob = await canvas.convertToBlob({ type: 'image/webp', quality: qualityRatio });
+        } else if (canvas.toBlob) {
+          blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', qualityRatio));
+        } else {
+          throw new Error('Canvas blob conversion unsupported');
+        }
+        if (!blob) throw new Error('Failed to create blob from canvas');
+        const buffer = await blob.arrayBuffer();
+        cb(new Uint8Array(buffer), null);
+      } catch (e) {
+        cb(null, e.message || 'Render and encode error');
+      }
+    })();
+  }"""
+)
+private external fun jsRenderAndEncode(
+  bitmap: JsAny,
   quality: Int,
   maxLongEdgePx: Int?,
-  cb: (String) -> Unit
+  downscaleOnly: Boolean,
+  cb: (Uint8Array?, String?) -> Unit
 )
 
+@JsFun(
+  """(bitmap) => {
+    if (bitmap && typeof bitmap.close === 'function') {
+      bitmap.close();
+    }
+  }"""
+)
+private external fun jsCloseBitmap(bitmap: JsAny)
+
 @JsFun("() => Date.now()")
-external fun nowMs(): Double
+private external fun nowMs(): Double
+
+private fun ByteArray.toJsUint8Array(): Uint8Array {
+  val u8 = jsCreateUint8Array(this.size)
+  for (i in indices) {
+    u8[i] = this[i]
+  }
+  return u8
+}
+
+private fun Uint8Array.toByteArray(): ByteArray {
+  val bytes = ByteArray(this.length)
+  for (i in 0 until this.length) {
+    bytes[i] = this[i]
+  }
+  return bytes
+}
 
 actual object ImageCompressor {
-  @OptIn(ExperimentalEncodingApi::class)
+  private suspend fun decodeBitmap(
+    uint8: Uint8Array,
+    mime: String
+  ): JsAny =
+    suspendCancellableCoroutine { cont ->
+      jsDecodeBitmap(uint8, mime) { bitmap, error ->
+        if (error != null || bitmap == null) {
+          cont.resumeWithException(RuntimeException(error ?: "Failed to decode image"))
+        } else {
+          cont.resume(bitmap)
+        }
+      }
+    }
+
+  private suspend fun renderAndEncode(
+    bitmap: JsAny,
+    quality: Int,
+    maxLongEdgePx: Int?,
+    downscaleOnly: Boolean
+  ): ByteArray =
+    suspendCancellableCoroutine { cont ->
+      jsRenderAndEncode(bitmap, quality, maxLongEdgePx, downscaleOnly) { u8Array, error ->
+        if (error != null || u8Array == null) {
+          cont.resumeWithException(RuntimeException(error ?: "Failed to encode image"))
+        } else {
+          cont.resume(u8Array.toByteArray())
+        }
+      }
+    }
+
   actual suspend fun compress(
     input: ImageData,
     config: CompressionConfig,
@@ -86,33 +159,22 @@ actual object ImageCompressor {
   ): CompressedImage {
     val startTime = nowMs().toLong()
     val originalSize = input.rawBytes.size
+    val uint8 = input.rawBytes.toJsUint8Array()
+    val bitmap = decodeBitmap(uint8, input.mimeType)
 
-    // Simplified encoding with error handling
-    suspend fun encodeAtQuality(quality: Int): ByteArray =
-      suspendCancellableCoroutine { cont ->
-        val inputBase64 = Base64.encode(input.rawBytes)
-        jsEncodeWebPBase64(
-          b64 = inputBase64,
-          mime = input.mimeType,
-          quality = quality.coerceIn(5, 95),
-          maxLongEdgePx = resize.maxLongEdgePx
-        ) { resultBase64 ->
-          if (resultBase64.startsWith("ERROR:")) {
-            cont.resumeWith(Result.failure(RuntimeException(resultBase64.substring(7))))
-          } else {
-            val resultBytes = Base64.decode(resultBase64)
-            cont.resume(resultBytes)
-          }
-        }
-      }
-
-    val result =
+    try {
       when (config) {
         is CompressionConfig.ByQuality -> {
-          val quality = config.qualityPercent.coerceIn(5f, 95f).toInt()
-          val resultBytes = encodeAtQuality(quality)
+          val quality = config.qualityPercent.coerceIn(0f, 100f).toInt()
+          val resultBytes =
+            renderAndEncode(
+              bitmap = bitmap,
+              quality = quality,
+              maxLongEdgePx = resize.maxLongEdgePx,
+              downscaleOnly = resize.downscaleOnly
+            )
 
-          CompressedImage(
+          return CompressedImage(
             bytes = resultBytes,
             originalSize = originalSize,
             compressedSize = resultBytes.size,
@@ -129,121 +191,35 @@ actual object ImageCompressor {
 
         is CompressionConfig.ByTargetSize -> {
           val targetBytes = max(1, config.targetSizeKb) * 1024
-
-          // Ultra-conservative quality prediction to ensure we NEVER go below target size
-          val compressionRatio = targetBytes.toDouble() / originalSize
-          val predictedQuality =
-            when {
-              compressionRatio > 0.7 -> 90 // Very light compression
-              compressionRatio > 0.5 -> 82 // Light compression
-              compressionRatio > 0.3 -> 72 // Moderate compression
-              compressionRatio > 0.2 -> 62 // Good compression
-              compressionRatio > 0.1 -> 52 // Heavy compression
-              compressionRatio > 0.05 -> 35 // Very heavy compression
-              else -> 25 // Extreme compression
-            }.let { baseQuality ->
-              // Add very strong conservative bias for WasmJs
-              val conservativeBias =
-                when {
-                  compressionRatio < 0.05 -> +15 // Extreme compression - very strong bias
-                  compressionRatio < 0.15 -> +18 // Very aggressive compression - very strong bias (WasmJs needs more)
-                  compressionRatio < 0.3 -> +12 // Moderate compression - strong bias
-                  else -> +10 // Light compression - good bias
-                }
-              (baseQuality + conservativeBias).coerceIn(20, 95)
+          val searchResult =
+            QualityPredictor.searchTargetQuality(originalSize, targetBytes) { q ->
+              renderAndEncode(
+                bitmap = bitmap,
+                quality = q,
+                maxLongEdgePx = resize.maxLongEdgePx,
+                downscaleOnly = resize.downscaleOnly
+              )
             }
 
-          // First attempt with prediction
-          val firstBytes = encodeAtQuality(predictedQuality)
-          var iterations = 1
-          var finalQuality = predictedQuality
-          var finalBytes = firstBytes
-
-          // Target size accuracy: aim for AT LEAST target size, allow up to +35KB above
-          val tolerance = max(35 * 1024, targetBytes / 15)
-          val minAcceptable = targetBytes // Never go below target
-          val maxAcceptable = targetBytes + tolerance
-
-          // Triple-safety correction logic like Android
-          if (firstBytes.size !in minAcceptable..maxAcceptable) {
-            if (firstBytes.size > maxAcceptable) {
-              // Too large - reduce quality carefully
-              val sizeRatio = firstBytes.size.toDouble() / targetBytes
-              val qualityReduction =
-                when {
-                  sizeRatio > 2.0 -> 0.60 // Very large, cut by 40%
-                  sizeRatio > 1.5 -> 0.70 // Large, cut by 30%
-                  else -> 0.80 // Moderate, cut by 20%
-                }
-              val lowerQuality = (predictedQuality * qualityReduction).toInt().coerceAtLeast(8)
-              val secondBytes = encodeAtQuality(lowerQuality)
-              iterations++
-
-              if (secondBytes.size >= targetBytes) {
-                finalQuality = lowerQuality
-                finalBytes = secondBytes
-              } else {
-                // If went below target, use original (prefer overshooting)
-                finalQuality = predictedQuality
-                finalBytes = firstBytes
-              }
-            } else {
-              // Too small - be very aggressive in quality increase
-              val sizeRatio = targetBytes.toDouble() / firstBytes.size
-              val qualityIncrease =
-                when {
-                  sizeRatio > 2.0 -> 1.80 // Much too small, very big increase
-                  sizeRatio > 1.5 -> 1.60 // Too small, big increase
-                  sizeRatio > 1.2 -> 1.40 // Moderately small, good increase
-                  else -> 1.25 // Slightly small, moderate increase
-                }
-              val higherQuality = (predictedQuality * qualityIncrease).toInt().coerceAtMost(95)
-              val secondBytes = encodeAtQuality(higherQuality)
-              iterations++
-
-              // If still below target, make one final aggressive attempt
-              if (secondBytes.size < targetBytes && iterations < 3) {
-                val finalQuality3 = min(95, higherQuality + 15) // Add 15 more quality points
-                val thirdBytes = encodeAtQuality(finalQuality3)
-                iterations++
-
-                if (thirdBytes.size >= targetBytes) {
-                  finalQuality = finalQuality3
-                  finalBytes = thirdBytes
-                } else {
-                  // Use the best result we have (closest to target)
-                  finalQuality = higherQuality
-                  finalBytes = secondBytes
-                }
-              } else {
-                finalQuality = higherQuality
-                finalBytes = secondBytes
-              }
-            }
-          }
-
-          CompressedImage(
-            bytes = finalBytes,
+          return CompressedImage(
+            bytes = searchResult.bytes,
             originalSize = originalSize,
-            compressedSize = finalBytes.size,
+            compressedSize = searchResult.bytes.size,
             mimeType = "image/webp",
             metadata =
               CompressionMetadata(
-                effectiveQualityPercent = finalQuality.toFloat(),
-                iterations = iterations,
+                effectiveQualityPercent = searchResult.finalQuality.toFloat(),
+                iterations = searchResult.iterations,
                 elapsedMillis = nowMs().toLong() - startTime,
-                estimatedQuality = predictedQuality,
-                searchRange =
-                  IntRange(
-                    min(predictedQuality, finalQuality),
-                    max(predictedQuality, finalQuality)
-                  ),
+                estimatedQuality = searchResult.predictedQuality,
+                searchRange = QualityPredictor.getSearchRange(searchResult.predictedQuality),
                 engineUsed = "WasmJs"
               )
           )
         }
       }
-
-    return result
+    } finally {
+      jsCloseBitmap(bitmap)
+    }
   }
 }

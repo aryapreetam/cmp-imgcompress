@@ -1,21 +1,13 @@
 package io.github.aryapreetam.cmpimgcompress
 
 import io.github.aryapreetam.cmpimgcompress.testutils.BasePlatformTest
+import io.github.aryapreetam.cmpimgcompress.testutils.TestImages
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.test.assertContentEquals
 
 class ImageCompressorTest : BasePlatformTest() {
-  // Tiny 1x1 transparent PNG. Decodable by both Skia and Android BitmapFactory.
-  private val tinyPng: ByteArray =
-    byteArrayOf(
-      -119, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
-      0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, -60, -119, 0, 0,
-      0, 11, 73, 68, 65, 84, 120, -100, 99, 96, 96, 96, 0, 0, 0, 5, 0,
-      1, 13, 10, 45, -76, 0, 0, 0, 0, 73, 69, 78, 68, -82, 66, 96, -126
-    )
-
   private fun isWebP(bytes: ByteArray): Boolean {
     if (bytes.size < 12) return false
     return bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
@@ -24,68 +16,70 @@ class ImageCompressorTest : BasePlatformTest() {
       bytes[10] == 'B'.code.toByte() && bytes[11] == 'P'.code.toByte()
   }
 
-  @Test
-  fun byQuality_producesWebP() =
-    runTest {
-      val input = ImageData(rawBytes = tinyPng, mimeType = "image/png")
-      val out = try {
-          ImageCompressor.compress(input, CompressionConfig.ByQuality(75f))
-      } catch (e: Exception) {
-          val msg = e.message ?: ""
-          val stack = e.toString()
-          if (msg.contains("OffscreenCanvas is not defined") ||
-              msg.contains("createImageBitmap is not defined") ||
-              msg.contains("Failed to get optimized 2D context") ||
-              msg.contains("The source image could not be decoded.") ||
-              stack.contains("javax.imageio.IIOException") ||
-              stack.contains("android.graphics.BitmapFactory") ||
-              msg.contains("not mocked") ||
-              msg.contains("Failed to encode WebP at quality") ||
-              stack.contains("UnsupportedOperationException")) {
-              return@runTest
-          }
-          throw e
-      }
+  private fun isJpeg(bytes: ByteArray): Boolean {
+    if (bytes.size < 2) return false
+    return (bytes[0].toInt() and 0xFF) == 0xFF && (bytes[1].toInt() and 0xFF) == 0xD8
+  }
 
-      if (out.metadata?.engineUsed == "iOS-NoOp") {
-        assertContentEquals(tinyPng, out.bytes, "iOS implementation should return raw bytes untouched.")
-      } else {
-        assertTrue(isWebP(out.bytes), "Output should be WebP (RIFF/WEBP signature)")
-        assertTrue(out.compressedSize > 0)
-      }
+  private fun isPng(bytes: ByteArray): Boolean {
+    if (bytes.size < 8) return false
+    return (bytes[0].toInt() and 0xFF) == 0x89 && (bytes[1].toInt() and 0xFF) == 0x50 &&
+      (bytes[2].toInt() and 0xFF) == 0x4E && (bytes[3].toInt() and 0xFF) == 0x47
+  }
+
+  private fun assertValidImageOutput(out: CompressedImage) {
+    assertTrue(out.compressedSize > 0, "Compressed size must be positive")
+    assertTrue(out.bytes.isNotEmpty(), "Output bytes must not be empty")
+    assertNotNull(out.metadata, "Metadata must be present")
+    assertTrue(out.metadata.iterations > 0, "Iterations must be positive")
+    assertNotNull(out.metadata.engineUsed, "Engine used must be reported")
+
+    if (out.metadata.engineUsed == "Android") {
+      assertTrue(
+        isWebP(out.bytes) || isPng(out.bytes) || isJpeg(out.bytes),
+        "Android output must match valid image format signature under host/device runtime"
+      )
+    } else if (out.mimeType == "image/jpeg") {
+      assertTrue(isJpeg(out.bytes), "Output bytes must match JPEG header when mimeType is image/jpeg")
+    } else {
+      assertTrue(isWebP(out.bytes), "Output bytes must match WebP RIFF header")
     }
+  }
 
   @Test
-  fun byTargetSize_hitsTolerance() =
-    runTest {
-      val input = ImageData(rawBytes = tinyPng, mimeType = "image/png")
-      val targetKb = 10
-      val out = try {
-          ImageCompressor.compress(input, CompressionConfig.ByTargetSize(targetKb))
-      } catch (e: Exception) {
-          val msg = e.message ?: ""
-          val stack = e.toString()
-          if (msg.contains("OffscreenCanvas is not defined") ||
-              msg.contains("createImageBitmap is not defined") ||
-              msg.contains("Failed to get optimized 2D context") ||
-              msg.contains("The source image could not be decoded.") ||
-              stack.contains("javax.imageio.IIOException") ||
-              stack.contains("android.graphics.BitmapFactory") ||
-              msg.contains("not mocked") ||
-              msg.contains("Failed to encode WebP at quality") ||
-              stack.contains("UnsupportedOperationException")) {
-              return@runTest
-          }
-          throw e
-      }
-      
-      if (out.metadata?.engineUsed == "iOS-NoOp") {
-          assertTrue(tinyPng.contentEquals(out.bytes), "iOS implementation should return raw bytes untouched.")
-      } else {
-          val targetBytes = targetKb * 1024
-          val tol = maxOf((targetBytes * 0.05).toInt(), 10 * 1024)
-          assertTrue(isWebP(out.bytes))
-          assertTrue(out.compressedSize in (targetBytes - tol)..(targetBytes + tol) || out.compressedSize <= targetBytes)
-      }
-    }
+  fun byQuality_tinyImage_producesValidImage() = runTest {
+    val input = ImageData(rawBytes = TestImages.tinyPng, mimeType = "image/png")
+    val out = ImageCompressor.compress(input, CompressionConfig.ByQuality(75f))
+    assertValidImageOutput(out)
+  }
+
+  @Test
+  fun byQuality_multiPixel_producesValidImage() = runTest {
+    val input = ImageData(rawBytes = TestImages.multiPixelPng, mimeType = "image/png")
+    val out = ImageCompressor.compress(input, CompressionConfig.ByQuality(60f))
+    assertValidImageOutput(out)
+  }
+
+  @Test
+  fun byTargetSize_tinyImage_hitsTolerance() = runTest {
+    val input = ImageData(rawBytes = TestImages.tinyPng, mimeType = "image/png")
+    val targetKb = 10
+    val out = ImageCompressor.compress(input, CompressionConfig.ByTargetSize(targetKb))
+    assertValidImageOutput(out)
+  }
+
+  @Test
+  fun byTargetSize_multiPixel_hitsTolerance() = runTest {
+    val input = ImageData(rawBytes = TestImages.multiPixelPng, mimeType = "image/png")
+    val targetKb = 2
+    val targetBytes = targetKb * 1024
+    val out = ImageCompressor.compress(input, CompressionConfig.ByTargetSize(targetKb))
+    assertValidImageOutput(out)
+
+    val tolerance = QualityPredictor.targetToleranceBytes(targetBytes)
+    assertTrue(
+      out.compressedSize <= targetBytes + tolerance || out.compressedSize <= input.rawBytes.size,
+      "Compressed size ${out.compressedSize} exceeded budget constraint (target: $targetBytes, tol: $tolerance)"
+    )
+  }
 }

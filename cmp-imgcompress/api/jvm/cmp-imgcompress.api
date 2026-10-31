@@ -1,0 +1,103 @@
+public final class io/github/aryapreetam/cmpimgcompress/CompressedImage {
+	public fun <init> ([BIILjava/lang/String;Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;)V
+	public synthetic fun <init> ([BIILjava/lang/String;Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()[B
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;
+	public final fun copy ([BIILjava/lang/String;Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;)Lio/github/aryapreetam/cmpimgcompress/CompressedImage;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/CompressedImage;[BIILjava/lang/String;Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;ILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/CompressedImage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBytes ()[B
+	public final fun getCompressedSize ()I
+	public final fun getMetadata ()Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;
+	public final fun getMimeType ()Ljava/lang/String;
+	public final fun getOriginalSize ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract class io/github/aryapreetam/cmpimgcompress/CompressionConfig {
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/CompressionConfig$ByQuality : io/github/aryapreetam/cmpimgcompress/CompressionConfig {
+	public fun <init> (F)V
+	public final fun component1 ()F
+	public final fun copy (F)Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByQuality;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByQuality;FILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByQuality;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getQualityPercent ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/CompressionConfig$ByTargetSize : io/github/aryapreetam/cmpimgcompress/CompressionConfig {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByTargetSize;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByTargetSize;IILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/CompressionConfig$ByTargetSize;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTargetSizeKb ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/CompressionMetadata {
+	public fun <init> (Ljava/lang/Float;IJLjava/lang/Integer;Lkotlin/ranges/IntRange;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/Float;IJLjava/lang/Integer;Lkotlin/ranges/IntRange;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Float;
+	public final fun component2 ()I
+	public final fun component3 ()J
+	public final fun component4 ()Ljava/lang/Integer;
+	public final fun component5 ()Lkotlin/ranges/IntRange;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/Float;IJLjava/lang/Integer;Lkotlin/ranges/IntRange;Ljava/lang/String;)Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;Ljava/lang/Float;IJLjava/lang/Integer;Lkotlin/ranges/IntRange;Ljava/lang/String;ILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/CompressionMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEffectiveQualityPercent ()Ljava/lang/Float;
+	public final fun getElapsedMillis ()J
+	public final fun getEngineUsed ()Ljava/lang/String;
+	public final fun getEstimatedQuality ()Ljava/lang/Integer;
+	public final fun getIterations ()I
+	public final fun getSearchRange ()Lkotlin/ranges/IntRange;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/ImageCompressor {
+	public static final field INSTANCE Lio/github/aryapreetam/cmpimgcompress/ImageCompressor;
+	public final fun compress (Lio/github/aryapreetam/cmpimgcompress/ImageData;Lio/github/aryapreetam/cmpimgcompress/CompressionConfig;Lio/github/aryapreetam/cmpimgcompress/ResizeOptions;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun compress$default (Lio/github/aryapreetam/cmpimgcompress/ImageCompressor;Lio/github/aryapreetam/cmpimgcompress/ImageData;Lio/github/aryapreetam/cmpimgcompress/CompressionConfig;Lio/github/aryapreetam/cmpimgcompress/ResizeOptions;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/ImageData {
+	public fun <init> ([BLjava/lang/String;)V
+	public final fun component1 ()[B
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy ([BLjava/lang/String;)Lio/github/aryapreetam/cmpimgcompress/ImageData;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/ImageData;[BLjava/lang/String;ILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/ImageData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMimeType ()Ljava/lang/String;
+	public final fun getRawBytes ()[B
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/aryapreetam/cmpimgcompress/ResizeOptions {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Integer;ZZ)V
+	public synthetic fun <init> (Ljava/lang/Integer;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Integer;
+	public final fun component2 ()Z
+	public final fun component3 ()Z
+	public final fun copy (Ljava/lang/Integer;ZZ)Lio/github/aryapreetam/cmpimgcompress/ResizeOptions;
+	public static synthetic fun copy$default (Lio/github/aryapreetam/cmpimgcompress/ResizeOptions;Ljava/lang/Integer;ZZILjava/lang/Object;)Lio/github/aryapreetam/cmpimgcompress/ResizeOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDownscaleOnly ()Z
+	public final fun getMaintainAspectRatio ()Z
+	public final fun getMaxLongEdgePx ()Ljava/lang/Integer;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
