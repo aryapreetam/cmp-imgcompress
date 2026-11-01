@@ -74,7 +74,7 @@ jobs:
           node-version: '20'
       - name: Setup Android SDK
         if: steps.check-apk.outputs.exists == 'false'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
       - name: Cache Kotlin JS Store
         uses: actions/cache@v4
         with:
@@ -447,6 +447,13 @@ jobs:
             },
             plugins: [
               function(hook, vm) {
+                hook.afterEach(function(html, next) {
+                  var transformed = html.replace(
+                    /<a [^>]*href="([^"]+user-attachments\/assets\/[^"]+)"[^>]*>.*?<\/a>/g,
+                    '<video src="$1" controls autoplay loop muted playsinline width="100%" style="border-radius: 8px;"></video>'
+                  );
+                  next(transformed);
+                });
                 hook.doneEach(function() {
                   mermaid.run({
                     querySelector: '.mermaid'

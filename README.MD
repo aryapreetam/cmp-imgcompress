@@ -32,9 +32,15 @@
 
 A Kotlin Multiplatform image compression library for Android, iOS, Desktop (JVM), and Web (Wasm). It provides an in-process compression API with aspect-ratio-aware downscaling, target quality, and target file size constraints.
 
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/fd74f21d-4aaf-44e6-b54c-4a7d4480eff9" controls autoplay loop muted playsinline width="100%" style="max-width: 720px; border-radius: 8px;"></video>
-</p>
+<table align="center">
+<tr>
+<td>
+
+https://github.com/user-attachments/assets/fd74f21d-4aaf-44e6-b54c-4a7d4480eff9
+
+</td>
+</tr>
+</table>
 
 ---
 
