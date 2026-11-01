@@ -12,7 +12,7 @@ env:
 jobs:
   lint:
     name: Lint and code style
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,11 +42,11 @@ jobs:
       matrix:
         include:
           - target: jvm
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - target: ios
             os: macos-latest
           - target: wasm
-            os: ubuntu-latest
+            os: ubuntu-24.04
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -138,7 +138,7 @@ jobs:
 
   test-android-unit:
     name: Android unit tests (lib + sample)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ lint ]
     steps:
       - name: Checkout repository
@@ -161,7 +161,7 @@ jobs:
 
   e2e-desktop-wasm:
     name: Parikshan E2E (JVM + Wasm)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ lib-tests ]
     steps:
       - name: Checkout repository
@@ -195,11 +195,12 @@ jobs:
             sample/composeApp/build/parikshan/*.log
             sample/composeApp/build/parikshan/logs/
             sample/composeApp/build/reports/tests/
+            sample/composeApp/build/reports/problems/
           if-no-files-found: ignore
 
   e2e-android:
     name: Parikshan E2E (Android)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ lib-tests, test-android-unit ]
     steps:
       - name: Checkout repository

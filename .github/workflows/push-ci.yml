@@ -38,7 +38,7 @@ concurrency:
 jobs:
   check-template-setup:
     name: Check if template is configured
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       is_configured: ${{ steps.check.outputs.is_configured }}
     steps:
@@ -82,7 +82,7 @@ jobs:
     name: Template not configured - CI skipped
     needs: check-template-setup
     if: needs.check-template-setup.outputs.is_configured == 'false'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Show setup instructions
         run: |
