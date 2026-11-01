@@ -87,5 +87,21 @@ class QualityPredictorTest {
     assertTrue(result.bytes.isNotEmpty())
     assertTrue(result.iterations == calls)
     assertTrue(result.finalQuality in 5..95)
+    assertTrue(result.bytes.size <= targetBytes, "Result must not exceed target bytes")
+  }
+
+  @Test
+  fun testNeverReturnsOversizedCandidateWhenCompliantFound() = runTest {
+    val originalBytes = 1_000_000
+    val targetBytes = 100_000
+
+    val result = QualityPredictor.searchTargetQuality(originalBytes, targetBytes) { quality ->
+      when {
+        quality > 20 -> ByteArray(200_000)
+        else -> ByteArray(90_000)
+      }
+    }
+
+    assertTrue(result.bytes.size <= targetBytes, "Must choose the 90KB compliant candidate over 200KB")
   }
 }

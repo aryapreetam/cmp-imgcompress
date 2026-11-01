@@ -24,75 +24,81 @@
   <img src="https://img.shields.io/badge/Web(wasm)-4285F4?logo=google-chrome&logoColor=white" alt="Web">
 </p>
 
-A high-performance, lightweight image compression library for Compose Multiplatform (Android, iOS, Desktop/JVM, Web/WASM). It allows you to efficiently compress and resize images into high-quality WebP format using a simple, unified multiplatform API.
+<p align="center">
+  <a href="https://aryapreetam.github.io/cmp-imgcompress/demo/"><strong>Live Web Demo</strong></a> •
+  <a href="https://aryapreetam.github.io/cmp-imgcompress/api/"><strong>API Reference</strong></a> •
+  <a href="#-download-sample-app-executables"><strong>Download Sample Apps</strong></a>
+</p>
 
-**Key Features:**
-
-- ⚡ **Dual Compression Modes**: Compress by target quality percentage or target file size constraint (KB).
-- 📐 **Smart Resizing**: Fast, aspect-ratio-aware resizing prior to compression to save memory and network bandwidth.
-- ⚙️ **Multi-Engine Execution**: Uses high-performance native engines under the hood (Android's Bitmap, JVM's Skia, iOS's UIKit, Wasm's Canvas).
-- 📊 **Rich Analytics**: Delivers metadata and diagnostics on compression ratios, elapsed times, and iteration counts.
-- 🧪 **Testable Design**: Designed to support clean UI unit tests and portable multiplatform verification.
+A Kotlin Multiplatform image compression library for Android, iOS, Desktop (JVM), and Web (Wasm). It provides an in-process compression API with aspect-ratio-aware downscaling, target quality, and target file size constraints.
 
 ---
 
-## ✅ Platform Capability Matrix
+## What It Does
 
-| Capability | Android | iOS | Desktop (JVM) | Web (WASM) |
-|---|---:|---:|---:|---:|
-| WebP Compression | ✅ | ✅ | ✅ | ✅ |
-| Compress By Quality | ✅ | ✅ | ✅ | ✅ |
-| Compress By Target Size | ✅ | ✅ *(Iterative)* | ✅ *(Iterative)* | ✅ *(Iterative)* |
-| Smart Auto-Resizing | ✅ | ✅ | ✅ | ✅ |
-| Compression Analytics | ✅ | ✅ | ✅ | ✅ |
-
-Wasm Demo: 
-[![Try Live Demo](https://img.shields.io/badge/Try%20Live%20Demo-Web%20wasmJs-blueviolet?style=for-the-badge)](https://aryapreetam.github.io/cmp-imgcompress/demo/)
-
-API Docs:
-[![Library API Docs](https://img.shields.io/badge/API%20Reference-Library%20Docs-green?style=for-the-badge)](https://aryapreetam.github.io/cmp-imgcompress/api/)
+- **Compression Modes**: Compress by quality percentage (`0` to `100`) or by target file size limit in kilobytes.
+- **Aspect-Ratio Downscaling**: Downscales images whose longest edge exceeds a specified pixel limit before encoding, reducing peak memory usage.
+- **Zero UI Dependencies**: The core compression library has no UI or Compose dependencies and can be used in background workers, ViewModels, or command-line tools.
+- **Compression Diagnostics**: Returns input size, output size, MIME type, elapsed execution time, and iterations taken.
 
 ---
 
-## 📦 Installation
+## Platform Support and Format Behavior
 
-Add the dependency to your Compose Multiplatform project:
+Different platforms use different native encoders. The table below lists the underlying engine, output format, and transparency handling for each supported target:
 
-**Option A — Version Catalog (Recommended)**
+| Platform | Output Format | Alpha Transparency | Engine |
+| :--- | :--- | :---: | :--- |
+| **Android** | `image/webp` | Preserved | `android.graphics.Bitmap` |
+| **iOS** | `image/heic`, `image/png`, or `image/jpeg` | Preserved (via HEIC/PNG) | Apple `ImageIO` + `CoreGraphics` |
+| **Desktop (JVM)** | `image/webp` | Preserved | JetBrains Skia (`org.jetbrains.skia`) |
+| **Web (Wasm)** | `image/webp` | Preserved | Browser Canvas API |
 
-1) In `gradle/libs.versions.toml`:
+### iOS Format Selection
+
+Apple's system `ImageIO` framework does not include an encoder for WebP. To prevent transparency loss, iOS selects formats dynamically:
+
+1. **Images with transparency**: Encoded as HEIC (`image/heic`) with lossy compression on iOS 11+. If HEIC is unavailable, it falls back to lossless PNG (`image/png`).
+2. **Images without transparency**: Encoded as JPEG (`image/jpeg`) with lossy compression.
+3. **JPEG fallback for transparent images**: If forced to JPEG, the image is composited over a solid white background so transparent areas do not render black.
+
+---
+
+## Installation
+
+Add the dependency to your project:
+
+### Option A: Gradle Version Catalog (Recommended)
+
+1. Add to `gradle/libs.versions.toml`:
 
 ```toml
 [versions]
-cmpImgcompress = "0.0.1"
+cmp-imgcompress = "0.0.4"
 
 [libraries]
-cmp-imgcompress = { module = "io.github.aryapreetam:cmp-imgcompress", version.ref = "cmpImgcompress" }
+cmp-imgcompress = { module = "io.github.aryapreetam:cmp-imgcompress", version.ref = "cmp-imgcompress" }
 ```
 
-2) In your module's `build.gradle.kts`:
+2. Add to your module's `build.gradle.kts`:
 
 ```kotlin
 kotlin {
   sourceSets {
-    val commonMain by getting {
-      dependencies {
-        implementation(libs.cmp.imgcompress)
-      }
+    commonMain.dependencies {
+      implementation(libs.cmp.imgcompress)
     }
   }
 }
 ```
 
-**Option B — Direct Dependency**
+### Option B: Direct Dependency
 
 ```kotlin
 kotlin {
   sourceSets {
-    val commonMain by getting {
-      dependencies {
-        implementation("io.github.aryapreetam:cmp-imgcompress:0.0.1")
-      }
+    commonMain.dependencies {
+      implementation("io.github.aryapreetam:cmp-imgcompress:0.0.4")
     }
   }
 }
@@ -100,46 +106,48 @@ kotlin {
 
 ---
 
-## 🚀 Quick Start
+## Usage Examples
 
-### Basic Compression by Quality
+### Compress by Quality Percentage
 
 ```kotlin
-import io.github.aryapreetam.cmpimgcompress.*
+import io.github.aryapreetam.cmpimgcompress.CompressedImage
+import io.github.aryapreetam.cmpimgcompress.CompressionConfig
+import io.github.aryapreetam.cmpimgcompress.ImageData
+import io.github.aryapreetam.cmpimgcompress.ImageCompressor
 
-suspend fun compressMyImage(inputBytes: ByteArray) {
-  val imageData = ImageData(inputBytes, "image/png")
-  
-  // Compress to WebP at 80% quality
-  val compressed: CompressedImage = ImageCompressor.compress(
-    input = imageData,
-    config = CompressionConfig.ByQuality(80f)
+suspend fun compressSample(inputBytes: ByteArray) {
+  val input = ImageData(rawBytes = inputBytes, mimeType = "image/png")
+
+  val result: CompressedImage = ImageCompressor.compress(
+    input = input,
+    config = CompressionConfig.ByQuality(qualityPercent = 80f)
   )
-  
-  println("Original: ${compressed.originalSize} bytes")
-  println("Compressed: ${compressed.compressedSize} bytes")
-  
-  val outputWebpBytes = compressed.bytes
+
+  println("Original: ${result.originalSize} B, Compressed: ${result.compressedSize} B (${result.mimeType})")
+  val compressedBytes: ByteArray = result.bytes
 }
 ```
 
-### Compress to a Specific Target Size Constraint
+### Compress to a Target Size Budget (KB)
 
 ```kotlin
-import io.github.aryapreetam.cmpimgcompress.*
+import io.github.aryapreetam.cmpimgcompress.CompressionConfig
+import io.github.aryapreetam.cmpimgcompress.ImageData
+import io.github.aryapreetam.cmpimgcompress.ImageCompressor
+import io.github.aryapreetam.cmpimgcompress.ResizeOptions
 
-suspend fun compressToLimit(inputBytes: ByteArray) {
-  val imageData = ImageData(inputBytes, "image/jpeg")
-  
-  // Attempt to compress the image to fall under 100 KB
-  val compressed = ImageCompressor.compress(
-    input = imageData,
-    config = CompressionConfig.ByTargetSize(100), // Target size limit in KB
-    resize = ResizeOptions(maxLongEdgePx = 1920) // Optional resizing
+suspend fun compressUnderBudget(inputBytes: ByteArray) {
+  val input = ImageData(rawBytes = inputBytes, mimeType = "image/jpeg")
+
+  // Attempts to produce an output within 100 KB
+  val result = ImageCompressor.compress(
+    input = input,
+    config = CompressionConfig.ByTargetSize(targetSizeKb = 100),
+    resize = ResizeOptions(maxLongEdgePx = 1920)
   )
-  
-  println("Elapsed time: ${compressed.metadata?.elapsedMillis} ms")
-  println("Iterations taken: ${compressed.metadata?.iterations}")
+
+  println("Size: ${result.compressedSize} B in ${result.metadata?.elapsedMillis} ms across ${result.metadata?.iterations} iterations")
 }
 ```
 
@@ -147,10 +155,10 @@ suspend fun compressToLimit(inputBytes: ByteArray) {
 
 ## 📦 Download Sample App Executables
 
-Download and try the sample app on your platform without building from source:
+Download pre-built sample application binaries directly to verify library behavior on your platform without building from source:
 
 | Platform | Format / Package | Download Link |
-|----------|------------------|--------------|
+| :--- | :--- | :--- |
 | 🍏 **macOS (Intel)** | DMG Installer | [![Download](https://img.shields.io/badge/Download--Mac--x64--DMG-blue?style=for-the-badge)](https://github.com/aryapreetam/cmp-imgcompress/releases/latest/download/sample-app-desktop-x64.dmg) |
 | 🍎 **macOS (Apple Silicon)** | DMG Installer | [![Download](https://img.shields.io/badge/Download--Mac--arm64--DMG-blue?style=for-the-badge)](https://github.com/aryapreetam/cmp-imgcompress/releases/latest/download/sample-app-desktop-arm64.dmg) |
 | 🪟 **Windows** | MSI Installer | [![Download](https://img.shields.io/badge/Download--Windows--MSI-0078D4?style=for-the-badge&logo=windows)](https://github.com/aryapreetam/cmp-imgcompress/releases/latest/download/sample-app-windows.msi) |
@@ -161,10 +169,18 @@ Download and try the sample app on your platform without building from source:
 
 ### 🚀 How to Run the Sample App
 
-For instructions on how to install and run the pre-built executables or build and run the sample application from source code, please refer to the **[How to Run the Sample App](docs/run-sample-app.md)** guide.
+For instructions on installing pre-built binaries or compiling the sample app from source, see the **[How to Run the Sample App](docs/run-sample-app.md)** guide.
+
+---
+
+## Demos and Reference
+
+- **Interactive Wasm Demo**: [aryapreetam.github.io/cmp-imgcompress/demo/](https://aryapreetam.github.io/cmp-imgcompress/demo/)
+- **API Reference**: [aryapreetam.github.io/cmp-imgcompress/api/](https://aryapreetam.github.io/cmp-imgcompress/api/)
+- **Sample App Setup**: See [How to Run the Sample App](docs/run-sample-app.md) for details on running the desktop, Android, and web sample applications.
 
 ---
 
 ## License
 
-MIT License © 2026 aryapreetam and contributors. See [LICENSE](./LICENSE) for details.
+MIT License. See [LICENSE](./LICENSE) for details.

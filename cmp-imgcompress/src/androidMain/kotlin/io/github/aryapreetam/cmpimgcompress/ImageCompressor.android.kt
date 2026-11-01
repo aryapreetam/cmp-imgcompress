@@ -49,11 +49,15 @@ actual object ImageCompressor {
         targetWidth: Int,
         targetHeight: Int
       ): Int {
-        var sampleSize = 1
-        while (originalWidth / (sampleSize * 2) >= targetWidth && originalHeight / (sampleSize * 2) >= targetHeight) {
-          sampleSize *= 2
+        var inSampleSize = 1
+        if (originalHeight > targetHeight || originalWidth > targetWidth) {
+          val halfHeight = originalHeight / 2
+          val halfWidth = originalWidth / 2
+          while ((halfHeight / inSampleSize) >= targetHeight || (halfWidth / inSampleSize) >= targetWidth) {
+            inSampleSize *= 2
+          }
         }
-        return sampleSize
+        return max(1, inSampleSize)
       }
 
       val (width, height) = getImageDimensions()
@@ -72,24 +76,45 @@ actual object ImageCompressor {
       val targetWidth = max(1, (width * targetScale).toInt())
       val targetHeight = max(1, (height * targetScale).toInt())
 
-      val sampleSize = calculateOptimalSampleSize(width, height, targetWidth, targetHeight)
-      val decodeOptions =
-        BitmapFactory.Options().apply {
-          inPreferredConfig = Bitmap.Config.ARGB_8888
-          inSampleSize = sampleSize
-        }
+      var sampleSize = calculateOptimalSampleSize(width, height, targetWidth, targetHeight)
+      var decodedBitmap: Bitmap? = null
 
-      val decodedBitmap =
-        BitmapFactory.decodeByteArray(input.rawBytes, 0, input.rawBytes.size, decodeOptions)
-          ?: throw IllegalArgumentException("Unable to decode input image: ${input.mimeType}")
+      while (decodedBitmap == null && sampleSize <= 32) {
+        try {
+          val decodeOptions =
+            BitmapFactory.Options().apply {
+              inPreferredConfig = Bitmap.Config.ARGB_8888
+              inSampleSize = sampleSize
+            }
+          decodedBitmap =
+            BitmapFactory.decodeByteArray(input.rawBytes, 0, input.rawBytes.size, decodeOptions)
+          if (decodedBitmap == null) {
+            sampleSize *= 2
+          }
+        } catch (oom: OutOfMemoryError) {
+          sampleSize *= 2
+          System.gc()
+          if (sampleSize > 32) {
+            throw RuntimeException("Image is too large to decode in available memory (${width}x${height})", oom)
+          }
+        }
+      }
+
+      val safeDecodedBitmap = decodedBitmap
+        ?: throw IllegalArgumentException("Unable to decode input image: ${input.mimeType}")
 
       var scaledBitmap: Bitmap? = null
       val workingBitmap =
-        if (decodedBitmap.width != targetWidth || decodedBitmap.height != targetHeight) {
-          scaledBitmap = Bitmap.createScaledBitmap(decodedBitmap, targetWidth, targetHeight, true)
-          scaledBitmap
+        if (safeDecodedBitmap.width != targetWidth || safeDecodedBitmap.height != targetHeight) {
+          try {
+            scaledBitmap = Bitmap.createScaledBitmap(safeDecodedBitmap, targetWidth, targetHeight, true)
+            scaledBitmap
+          } catch (oom: OutOfMemoryError) {
+            // Memory pressure: fall back to subsampled bitmap directly rather than crashing
+            safeDecodedBitmap
+          }
         } else {
-          decodedBitmap
+          safeDecodedBitmap
         }
 
       try {
@@ -138,10 +163,10 @@ actual object ImageCompressor {
           }
         }
       } finally {
-        if (scaledBitmap != null && scaledBitmap != decodedBitmap) {
+        if (scaledBitmap != null && scaledBitmap != safeDecodedBitmap) {
           scaledBitmap.recycle()
         }
-        decodedBitmap.recycle()
+        safeDecodedBitmap.recycle()
       }
     }
 }

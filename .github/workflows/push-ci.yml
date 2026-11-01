@@ -16,7 +16,6 @@ on:
       - 'build.gradle.kts'
       - '.github/workflows/ci.yml'
       - '.github/workflows/push-ci.yml'
-      - 'maestro-e2e/**'
   pull_request:
     paths:
       # Same path filters for PRs
@@ -28,7 +27,6 @@ on:
       - 'build.gradle.kts'
       - '.github/workflows/ci.yml'
       - '.github/workflows/push-ci.yml'
-      - 'maestro-e2e/**'
 
 permissions:
   contents: read
@@ -75,7 +73,7 @@ jobs:
           fi
 
   ci:
-    name: Reuse CI (lint, build+tests, android UI)
+    name: Reuse CI (lint, unit tests, Parikshan E2E)
     needs: check-template-setup
     if: needs.check-template-setup.outputs.is_configured == 'true'
     uses: ./.github/workflows/ci.yml

@@ -35,11 +35,21 @@ class ImageCompressorPerformanceTest : BasePlatformTest() {
       (bytes[2].toInt() and 0xFF) == 0x4E && (bytes[3].toInt() and 0xFF) == 0x47
   }
 
+  private fun isHeic(bytes: ByteArray): Boolean {
+    if (bytes.size < 12) return false
+    return bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte() &&
+      bytes[6] == 'y'.code.toByte() && bytes[7] == 'p'.code.toByte()
+  }
+
   private fun assertValidFormat(result: CompressedImage) {
     if (result.metadata?.engineUsed == "Android") {
       assertTrue(isWebP(result.bytes) || isPng(result.bytes) || isJpeg(result.bytes), "Android output should be a valid image")
     } else if (result.mimeType == "image/jpeg") {
       assertTrue(isJpeg(result.bytes), "Output should be JPEG")
+    } else if (result.mimeType == "image/heic") {
+      assertTrue(isHeic(result.bytes), "Output should be HEIC")
+    } else if (result.mimeType == "image/png") {
+      assertTrue(isPng(result.bytes), "Output should be PNG")
     } else {
       assertTrue(isWebP(result.bytes), "Output should be WebP")
     }

@@ -16,7 +16,20 @@ data class ResizeOptions(
 data class ImageData(
   val rawBytes: ByteArray,
   val mimeType: String
-)
+) {
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is ImageData) return false
+    if (!rawBytes.contentEquals(other.rawBytes)) return false
+    return mimeType == other.mimeType
+  }
+
+  override fun hashCode(): Int {
+    var result = rawBytes.contentHashCode()
+    result = 31 * result + mimeType.hashCode()
+    return result
+  }
+}
 
 data class CompressionMetadata(
   val effectiveQualityPercent: Float?,
@@ -33,7 +46,26 @@ data class CompressedImage(
   val compressedSize: Int,
   val mimeType: String,
   val metadata: CompressionMetadata? = null
-)
+) {
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is CompressedImage) return false
+    if (!bytes.contentEquals(other.bytes)) return false
+    if (originalSize != other.originalSize) return false
+    if (compressedSize != other.compressedSize) return false
+    if (mimeType != other.mimeType) return false
+    return metadata == other.metadata
+  }
+
+  override fun hashCode(): Int {
+    var result = bytes.contentHashCode()
+    result = 31 * result + originalSize
+    result = 31 * result + compressedSize
+    result = 31 * result + mimeType.hashCode()
+    result = 31 * result + (metadata?.hashCode() ?: 0)
+    return result
+  }
+}
 
 expect object ImageCompressor {
   suspend fun compress(

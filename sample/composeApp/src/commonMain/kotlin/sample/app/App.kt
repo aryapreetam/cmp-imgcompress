@@ -124,7 +124,7 @@ fun App() {
         )
         Spacer(modifier = Modifier.height(4.dp))
         BasicText(
-          text = "Premium Compose Multiplatform Demo",
+          text = "Compose Multiplatform Demo",
           style = TextStyle(
             color = Color(0xFF94A3B8),
             fontSize = 13.sp,
@@ -303,7 +303,7 @@ fun App() {
 
                 val result = ImageCompressor.compress(imageData, config)
                 compressedResult = result
-              } catch (e: Exception) {
+              } catch (e: Throwable) {
                 compressionError = e.message ?: e.toString()
               } finally {
                 isCompressing = false

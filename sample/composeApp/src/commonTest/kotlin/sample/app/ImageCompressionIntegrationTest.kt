@@ -4,6 +4,7 @@ import io.github.aryapreetam.parikshan.E2ETestLifecycle
 import io.github.aryapreetam.parikshan.E2ETestScope
 import io.github.aryapreetam.parikshan.e2eTest
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class ImageCompressionIntegrationTest : E2ETestLifecycle {
 
@@ -28,5 +29,9 @@ class ImageCompressionIntegrationTest : E2ETestLifecycle {
     // 5. Verify compression analytics appear with a compressed output size
     assertVisible("compression_analytics_card")
     assertVisible("compressed_image_size")
+
+    // 6. Verify that the output size was actually reduced
+    val compressedBytes = resolveVisibleNode("compressed_image_size").text.orEmpty().removeSuffix(" B").toInt()
+    assertTrue(compressedBytes in 1..<1049275, "Expected size to be reduced from 1049275 B, got $compressedBytes B")
   }
 }

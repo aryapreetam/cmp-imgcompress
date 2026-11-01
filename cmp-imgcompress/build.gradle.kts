@@ -102,7 +102,7 @@ mavenPublishing {
 
   pom {
     name = "Image Compressor"
-    description = "Image Compressor for Compose Multiplatform(only webp output for now)"
+    description = "Kotlin Multiplatform image compression library for Android, iOS, Desktop, and Web (Wasm)."
     url = "https://github.com/aryapreetam/cmp-imgcompress"
 
     licenses {

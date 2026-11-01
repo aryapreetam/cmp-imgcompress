@@ -23,6 +23,7 @@ import platform.CoreFoundation.CFDictionarySetValue
 import platform.CoreFoundation.CFNumberCreate
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringCreateWithCString
+import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFNumberDoubleType
 import platform.CoreFoundation.kCFStringEncodingUTF8
 import platform.CoreGraphics.CGBitmapContextCreate
@@ -41,8 +42,12 @@ import platform.ImageIO.CGImageDestinationAddImage
 import platform.ImageIO.CGImageDestinationCreateWithData
 import platform.ImageIO.CGImageDestinationFinalize
 import platform.ImageIO.CGImageSourceCreateImageAtIndex
+import platform.ImageIO.CGImageSourceCreateThumbnailAtIndex
 import platform.ImageIO.CGImageSourceCreateWithData
 import platform.ImageIO.kCGImageDestinationLossyCompressionQuality
+import platform.ImageIO.kCGImageSourceCreateThumbnailFromImageAlways
+import platform.ImageIO.kCGImageSourceCreateThumbnailWithTransform
+import platform.ImageIO.kCGImageSourceThumbnailMaxPixelSize
 import platform.posix.uint8_tVar
 import kotlin.math.max
 import kotlin.time.TimeSource
@@ -71,16 +76,35 @@ actual object ImageCompressor {
             CFRelease(cfData)
           }
 
+        val maxEdge = (resize.maxLongEdgePx ?: 2560).toLong()
+
         val originalImage: CGImageRef =
-          CGImageSourceCreateImageAtIndex(imageSource, 0.toULong(), null)
-            ?: throw IllegalArgumentException("Failed to decode image at index 0")
+          try {
+            memScoped {
+              val options = CFDictionaryCreateMutable(null, 3, null, null)
+              CFDictionarySetValue(options, kCGImageSourceCreateThumbnailFromImageAlways, kCFBooleanTrue)
+              CFDictionarySetValue(options, kCGImageSourceCreateThumbnailWithTransform, kCFBooleanTrue)
+              val maxEdgeVar = alloc<DoubleVar>()
+              maxEdgeVar.value = maxEdge.toDouble()
+              val maxEdgeNum = CFNumberCreate(null, kCFNumberDoubleType, maxEdgeVar.ptr)
+              CFDictionarySetValue(options, kCGImageSourceThumbnailMaxPixelSize, maxEdgeNum)
+
+              val thumb = CGImageSourceCreateThumbnailAtIndex(imageSource, 0.toULong(), options)
+              if (options != null) CFRelease(options)
+              if (maxEdgeNum != null) CFRelease(maxEdgeNum)
+
+              thumb ?: CGImageSourceCreateImageAtIndex(imageSource, 0.toULong(), null)
+              ?: throw IllegalArgumentException("Failed to decode image at index 0")
+            }
+          } finally {
+            CFRelease(imageSource)
+          }
 
         var workingImage: CGImageRef = originalImage
         var isNewImage = false
 
         val width = CGImageGetWidth(originalImage).toLong()
         val height = CGImageGetHeight(originalImage).toLong()
-        val maxEdge = (resize.maxLongEdgePx ?: 2560).toLong()
         val longEdge = max(width, height)
 
         val targetScale =
@@ -128,7 +152,7 @@ actual object ImageCompressor {
           when (config) {
             is CompressionConfig.ByQuality -> {
               val quality = config.qualityPercent.coerceIn(0f, 100f).toInt()
-              val (resultBytes, mimeType) = encodeAtQuality(workingImage, quality)
+              val (resultBytes, mimeType) = encodeAtQuality(workingImage, quality, targetWidth, targetHeight)
 
               CompressedImage(
                 bytes = resultBytes,
@@ -147,11 +171,11 @@ actual object ImageCompressor {
 
             is CompressionConfig.ByTargetSize -> {
               val targetBytes = max(1, config.targetSizeKb) * 1024
-              var outMimeType = "image/webp"
+              var outMimeType = "image/jpeg"
 
               val searchResult =
                 QualityPredictor.searchTargetQuality(originalSize, targetBytes) { q ->
-                  val (bytes, mime) = encodeAtQuality(workingImage, q)
+                  val (bytes, mime) = encodeAtQuality(workingImage, q, targetWidth, targetHeight)
                   outMimeType = mime
                   bytes
                 }
@@ -181,64 +205,133 @@ actual object ImageCompressor {
         }
     }
 
-  private fun encodeAtQuality(cgImage: CGImageRef, quality: Int): Pair<ByteArray, String> = autoreleasepool {
-    val mutableData =
-      CFDataCreateMutable(null, 0)
-        ?: throw RuntimeException("Failed to allocate CFMutableData")
+  private fun compositeOverWhite(
+    image: CGImageRef,
+    width: Long,
+    height: Long
+  ): Pair<CGImageRef, Boolean> {
+    val colorSpace = CGColorSpaceCreateDeviceRGB()
+    val context =
+      CGBitmapContextCreate(
+        data = null,
+        width = width.toULong(),
+        height = height.toULong(),
+        bitsPerComponent = 8.toULong(),
+        bytesPerRow = (width * 4).toULong(),
+        space = colorSpace,
+        bitmapInfo = CGImageAlphaInfo.kCGImageAlphaNoneSkipLast.value
+      )
+    CGColorSpaceRelease(colorSpace)
+    if (context != null) {
+      platform.CoreGraphics.CGContextSetRGBFillColor(context, 1.0, 1.0, 1.0, 1.0)
+      platform.CoreGraphics.CGContextFillRect(context, CGRectMake(0.0, 0.0, width.toDouble(), height.toDouble()))
+      CGContextDrawImage(context, CGRectMake(0.0, 0.0, width.toDouble(), height.toDouble()), image)
+      val flattened = CGBitmapContextCreateImage(context)
+      CGContextRelease(context)
+      if (flattened != null) {
+        return Pair(flattened, true)
+      }
+    }
+    return Pair(image, false)
+  }
 
-    val utiWebP = CFStringCreateWithCString(null, "public.webp", kCFStringEncodingUTF8)
-    var destination =
-      if (utiWebP != null) {
-        CGImageDestinationCreateWithData(mutableData, utiWebP, 1.toULong(), null).also {
-          CFRelease(utiWebP)
+  private fun encodeAtQuality(
+    cgImage: CGImageRef,
+    quality: Int,
+    targetWidth: Long,
+    targetHeight: Long
+  ): Pair<ByteArray, String> = autoreleasepool {
+    val alphaInfo = platform.CoreGraphics.CGImageGetAlphaInfo(cgImage)
+    val hasAlpha = when (alphaInfo) {
+      CGImageAlphaInfo.kCGImageAlphaPremultipliedLast,
+      CGImageAlphaInfo.kCGImageAlphaPremultipliedFirst,
+      CGImageAlphaInfo.kCGImageAlphaLast,
+      CGImageAlphaInfo.kCGImageAlphaFirst -> true
+      else -> false
+    }
+
+    val canUseHeic = hasAlpha && targetWidth >= 16 && targetHeight >= 16
+
+    fun tryEncodeWithFormat(
+      uti: String,
+      outMime: String,
+      needsCompositeWhite: Boolean
+    ): Pair<ByteArray, String>? {
+      val mutableData = CFDataCreateMutable(null, 0) ?: return null
+      val utiCf = CFStringCreateWithCString(null, uti, kCFStringEncodingUTF8) ?: run {
+        CFRelease(mutableData)
+        return null
+      }
+      val destination = CGImageDestinationCreateWithData(mutableData, utiCf, 1.toULong(), null)
+      CFRelease(utiCf)
+      if (destination == null) {
+        CFRelease(mutableData)
+        return null
+      }
+
+      var imageToEncode = cgImage
+      var isComposite = false
+      if (needsCompositeWhite) {
+        val (flattened, isNew) = compositeOverWhite(cgImage, targetWidth, targetHeight)
+        imageToEncode = flattened
+        isComposite = isNew
+      }
+
+      try {
+        memScoped {
+          val options = CFDictionaryCreateMutable(null, 1, null, null)
+          val qVar = alloc<DoubleVar>()
+          qVar.value = quality.toDouble() / 100.0
+          val qNum = CFNumberCreate(null, kCFNumberDoubleType, qVar.ptr)
+          CFDictionarySetValue(options, kCGImageDestinationLossyCompressionQuality, qNum)
+
+          CGImageDestinationAddImage(destination, imageToEncode, options)
+
+          if (options != null) CFRelease(options)
+          if (qNum != null) CFRelease(qNum)
         }
-      } else {
-        null
-      }
-    var mimeType = "image/webp"
 
-    if (destination == null) {
-      val utiJpeg = CFStringCreateWithCString(null, "public.jpeg", kCFStringEncodingUTF8)
-      destination =
-        if (utiJpeg != null) {
-          CGImageDestinationCreateWithData(mutableData, utiJpeg, 1.toULong(), null).also {
-            CFRelease(utiJpeg)
+        val finalized = CGImageDestinationFinalize(destination)
+        if (!finalized) {
+          return null
+        }
+
+        val length = CFDataGetLength(mutableData).toInt()
+        val bytePtr = CFDataGetBytePtr(mutableData)
+        val resultBytes =
+          if (bytePtr != null && length > 0) {
+            bytePtr.readBytes(length)
+          } else {
+            ByteArray(0)
           }
-        } else {
-          null
-        } ?: throw RuntimeException("Failed to create CGImageDestination for WebP and JPEG")
-      mimeType = "image/jpeg"
-    }
-
-    memScoped {
-      val options = CFDictionaryCreateMutable(null, 1, null, null)
-      val qVar = alloc<DoubleVar>()
-      qVar.value = quality.toDouble() / 100.0
-      val qNum = CFNumberCreate(null, kCFNumberDoubleType, qVar.ptr)
-      CFDictionarySetValue(options, kCGImageDestinationLossyCompressionQuality, qNum)
-
-      CGImageDestinationAddImage(destination, cgImage, options)
-
-      if (options != null) CFRelease(options)
-      if (qNum != null) CFRelease(qNum)
-    }
-
-    val finalized = CGImageDestinationFinalize(destination)
-    CFRelease(destination)
-    if (!finalized) {
-      CFRelease(mutableData)
-      throw RuntimeException("Failed to finalize CGImageDestination")
-    }
-
-    val length = CFDataGetLength(mutableData).toInt()
-    val bytePtr = CFDataGetBytePtr(mutableData)
-    val resultBytes =
-      if (bytePtr != null && length > 0) {
-        bytePtr.readBytes(length)
-      } else {
-        ByteArray(0)
+        return Pair(resultBytes, outMime)
+      } finally {
+        if (isComposite) {
+          CGImageRelease(imageToEncode)
+        }
+        CFRelease(destination)
+        CFRelease(mutableData)
       }
-    CFRelease(mutableData)
-    Pair(resultBytes, mimeType)
+    }
+
+    // Format selection priority:
+    // 1. If alpha present and dimensions >= 16x16: attempt HEIC (lossy with alpha)
+    // 2. If alpha present: PNG (lossless alpha preservation)
+    // 3. JPEG (standard lossy)
+    // 4. Fallback with white compositing if all else fails
+    if (canUseHeic) {
+      val heicResult = tryEncodeWithFormat("public.heic", "image/heic", needsCompositeWhite = false)
+      if (heicResult != null) return heicResult
+    }
+
+    if (hasAlpha) {
+      val pngResult = tryEncodeWithFormat("public.png", "image/png", needsCompositeWhite = false)
+      if (pngResult != null) return pngResult
+    }
+
+    val jpegResult = tryEncodeWithFormat("public.jpeg", "image/jpeg", needsCompositeWhite = hasAlpha)
+    if (jpegResult != null) return jpegResult
+
+    throw RuntimeException("Failed to encode image with HEIC, PNG, or JPEG")
   }
 }

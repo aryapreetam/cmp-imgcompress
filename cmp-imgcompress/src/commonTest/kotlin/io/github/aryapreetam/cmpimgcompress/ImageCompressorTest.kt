@@ -4,6 +4,8 @@ import io.github.aryapreetam.cmpimgcompress.testutils.BasePlatformTest
 import io.github.aryapreetam.cmpimgcompress.testutils.TestImages
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -27,6 +29,12 @@ class ImageCompressorTest : BasePlatformTest() {
       (bytes[2].toInt() and 0xFF) == 0x4E && (bytes[3].toInt() and 0xFF) == 0x47
   }
 
+  private fun isHeic(bytes: ByteArray): Boolean {
+    if (bytes.size < 12) return false
+    return bytes[4] == 'f'.code.toByte() && bytes[5] == 't'.code.toByte() &&
+      bytes[6] == 'y'.code.toByte() && bytes[7] == 'p'.code.toByte()
+  }
+
   private fun assertValidImageOutput(out: CompressedImage) {
     assertTrue(out.compressedSize > 0, "Compressed size must be positive")
     assertTrue(out.bytes.isNotEmpty(), "Output bytes must not be empty")
@@ -41,9 +49,36 @@ class ImageCompressorTest : BasePlatformTest() {
       )
     } else if (out.mimeType == "image/jpeg") {
       assertTrue(isJpeg(out.bytes), "Output bytes must match JPEG header when mimeType is image/jpeg")
+    } else if (out.mimeType == "image/heic") {
+      assertTrue(isHeic(out.bytes), "Output bytes must match HEIC header when mimeType is image/heic")
+    } else if (out.mimeType == "image/png") {
+      assertTrue(isPng(out.bytes), "Output bytes must match PNG header when mimeType is image/png")
     } else {
       assertTrue(isWebP(out.bytes), "Output bytes must match WebP RIFF header")
     }
+  }
+
+  @Test
+  fun testDataClassStructuralEquality() {
+    val b1 = byteArrayOf(1, 2, 3, 4)
+    val b2 = byteArrayOf(1, 2, 3, 4)
+    val b3 = byteArrayOf(1, 2, 3, 5)
+
+    val d1 = ImageData(b1, "image/png")
+    val d2 = ImageData(b2, "image/png")
+    val d3 = ImageData(b3, "image/png")
+
+    assertEquals(d1, d2, "ImageData with identical byte contents must be equal")
+    assertEquals(d1.hashCode(), d2.hashCode(), "ImageData with identical contents must have matching hashCode")
+    assertFalse(d1 == d3, "ImageData with different bytes must not be equal")
+
+    val c1 = CompressedImage(b1, 100, 4, "image/webp")
+    val c2 = CompressedImage(b2, 100, 4, "image/webp")
+    val c3 = CompressedImage(b3, 100, 4, "image/webp")
+
+    assertEquals(c1, c2, "CompressedImage with identical byte contents must be equal")
+    assertEquals(c1.hashCode(), c2.hashCode(), "CompressedImage with identical contents must have matching hashCode")
+    assertFalse(c1 == c3, "CompressedImage with different bytes must not be equal")
   }
 
   @Test
